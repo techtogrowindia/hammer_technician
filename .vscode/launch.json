@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Hammer Technician",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "args": ["--dart-define=TECHNICIAN_DEFAULT_BEARER_TOKEN=YOUR_TOKEN"]
+    }
+  ]
+}

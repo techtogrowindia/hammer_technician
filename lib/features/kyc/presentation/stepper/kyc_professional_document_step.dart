@@ -1,0 +1,597 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:hammer_app/features/kyc/data/models/service_certificate_list_model.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:hammer_app/core/colors/colors.dart';
+import 'kyc_document_picker.dart';
+
+class KycProfessionalDocumentStep extends StatefulWidget {
+  final ServiceCertificateListResponse? certificateResponse;
+
+  /// Map key = "serviceId_certificateId", value = list of selected files
+  final Map<String, List<File>> certificateFiles;
+  final void Function(String key, List<File> files) onFilesPicked;
+  final void Function(String key, int fileIndex) onRemoveFile;
+
+  /// Map key = "serviceId_certificateId"
+  final Map<String, TextEditingController> numberControllers;
+  final Map<String, TextEditingController> expiryControllers;
+  final Map<String, bool> noExpiryMap;
+  final void Function(String key, bool value) onNoExpiryChanged;
+
+  /// Toggle map for optional certificates section per serviceId
+  final Map<int, bool> showOptionalCertsMap;
+  final void Function(int serviceId, bool value) onShowOptionalChanged;
+
+  /// NEW: Currently selected mandatory certificate key per service ("serviceId" -> "certificateId")
+  final Map<int, int?> selectedMandatoryCerts;
+  final void Function(int serviceId, int? certificateId) onMandatorySelected;
+
+  const KycProfessionalDocumentStep({
+    super.key,
+    required this.certificateResponse,
+    required this.certificateFiles,
+    required this.onFilesPicked,
+    required this.onRemoveFile,
+    required this.numberControllers,
+    required this.expiryControllers,
+    required this.noExpiryMap,
+    required this.onNoExpiryChanged,
+    required this.showOptionalCertsMap,
+    required this.onShowOptionalChanged,
+    required this.selectedMandatoryCerts,
+    required this.onMandatorySelected,
+  });
+
+  @override
+  State<KycProfessionalDocumentStep> createState() =>
+      _KycProfessionalDocumentStepState();
+}
+
+class _KycProfessionalDocumentStepState
+    extends State<KycProfessionalDocumentStep> {
+  @override
+  Widget build(BuildContext context) {
+    final response = widget.certificateResponse;
+    if (response == null || response.services.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 24),
+        child: Center(
+          child: Text(
+            "No certificates required for selected services.",
+            style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Missing mandatory banner
+
+        // Iterate through each service
+        ...response.services.map((svc) => _buildServiceSection(svc)),
+
+        const SizedBox(height: 10),
+      ],
+    );
+  }
+
+  Widget _buildServiceSection(ServiceWithCertificates svc) {
+    final mandatoryCerts = svc.mandatoryCertificates;
+    final selectedId = widget.selectedMandatoryCerts[svc.serviceId];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Modern Service Header
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue.withOpacity(0.05),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBlue,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.assignment_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        svc.serviceName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      if (mandatoryCerts.length > 1)
+                        const Text(
+                          "Any one certificate is sufficient",
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 2. Certificate Selection (Dropdown style)
+                if (mandatoryCerts.isNotEmpty) ...[
+                  const Text(
+                    "Required Document",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    value: selectedId,
+                    hint: const Text(
+                      "Choose a certificate",
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                    items: mandatoryCerts.map((c) {
+                      return DropdownMenuItem<int>(
+                        value: c.certificateId,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                c.certificateName,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                            if (c.uploaded)
+                              const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 16,
+                              ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) =>
+                        widget.onMandatorySelected(svc.serviceId, val),
+                  ),
+
+                  if (selectedId != null) ...[
+                    const SizedBox(height: 10),
+                    _buildUploadFields(
+                      svc.serviceId,
+                      mandatoryCerts.firstWhere(
+                        (c) => c.certificateId == selectedId,
+                      ),
+                      isAdditional: false,
+                    ),
+                  ],
+                ],
+
+                const Divider(height: 6),
+                InkWell(
+                  onTap: () => widget.onShowOptionalChanged(
+                    svc.serviceId,
+                    !(widget.showOptionalCertsMap[svc.serviceId] ?? false),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Additional Document?",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          Text(
+                            "Upload any extra valid certificates",
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      Transform.scale(
+                        scale: 0.8,
+                        child: Switch(
+                          value:
+                              widget.showOptionalCertsMap[svc.serviceId] ??
+                              false,
+                          onChanged: (v) =>
+                              widget.onShowOptionalChanged(svc.serviceId, v),
+                          activeColor: AppColors.primaryAmber,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (widget.showOptionalCertsMap[svc.serviceId] ?? false) ...[
+                  Builder(
+                    builder: (_) {
+                      final allCerts = svc.certificates;
+                      final targetCert = allCerts.firstWhere(
+                        (c) =>
+                            !c.isMandatory &&
+                            c.certificateId != selectedId &&
+                            (c.certificateName.toLowerCase().contains(
+                                  'other',
+                                ) ||
+                                c.certificateName.toLowerCase().contains(
+                                  'additional',
+                                )),
+                        orElse: () => allCerts.firstWhere(
+                          (c) =>
+                              !c.isMandatory && c.certificateId != selectedId,
+                          orElse: () => allCerts.first,
+                        ),
+                      );
+
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: _buildUploadFields(
+                          svc.serviceId,
+                          targetCert,
+                          isAdditional: true,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadFields(
+    int serviceId,
+    CertificateItem cert, {
+    required bool isAdditional,
+  }) {
+    final certificateId = cert.certificateId;
+    final key = "${serviceId}_$certificateId";
+    final files = widget.certificateFiles[key] ?? [];
+
+    final hasFiles = files
+        .isNotEmpty; // Reveal fields only after selecting a NEW file (as requested)
+
+    final isVendorLetter = cert.certificateName == "Letter from Registered Vendor";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!isAdditional) ...[
+          const SizedBox(height: 8),
+          if (isVendorLetter) ...[
+            const SizedBox.shrink(),
+          ] else
+            InkWell(
+              onTap: () async {
+                final picked = await KycDocumentPicker.pickFromGallery(context);
+                if (picked.isNotEmpty) {
+                  widget.onFilesPicked(key, [picked.first]);
+                }
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  const Text(
+                    "Upload Certificate ",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryBlue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.cloud_upload_outlined,
+                      color: AppColors.primaryBlue,
+                      size: 18,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ] else ...[
+          // Minimised UI for Additional: Icon only button
+          Row(
+            children: [
+              const Text(
+                "Add Extra Cert: ",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () async {
+                  final picked = await KycDocumentPicker.pickFromGallery(
+                    context,
+                  );
+                  if (picked.isNotEmpty) widget.onFilesPicked(key, picked);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryAmber.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add_a_photo_outlined,
+                    color: AppColors.primaryAmber,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+
+        // State Check: Show Remote or Local Files (Skip for Vendor Letter as requested)
+        if (!isVendorLetter && (cert.uploaded || hasFiles)) ...[
+          const SizedBox(height: 12),
+
+          // 2. Show Local Selected Files
+          ...files.asMap().entries.map(
+            (e) => _buildFileItem(key, e.value, e.key),
+          ),
+        ],
+
+        // 3. Certificate Details Reveal (Only for Mandatory and ONLY after a file is SELECTED)
+        if (!isAdditional && hasFiles && !isVendorLetter) ...[
+          const SizedBox(height: 16),
+          const Divider(thickness: 0.5),
+          const SizedBox(height: 16),
+          const Text(
+            "Certificate Number (Optional)",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: widget.numberControllers[key],
+            decoration: InputDecoration(
+              hintText: "Enter number if available",
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              SizedBox(
+                height: 24,
+                width: 24,
+                child: Checkbox(
+                  value: widget.noExpiryMap[key] ?? true,
+                  onChanged: (v) => widget.onNoExpiryChanged(key, v ?? true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                "This certificate does not have an expiry date",
+                style: TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
+          if (!(widget.noExpiryMap[key] ?? true)) ...[
+            const SizedBox(height: 12),
+            const Text(
+              "Expiry Date",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => _pickDate(key),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      widget.expiryControllers[key]!.text.isEmpty
+                          ? "Select Date"
+                          : widget.expiryControllers[key]!.text,
+                    ),
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 18,
+                      color: AppColors.primaryAmber,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  // Widget _buildRemoteFileItem(Map<String, dynamic> details) {
+  //   final fileName = details['file_name'] ?? 'Previously Uploaded';
+
+  //   return Padding(
+  //     padding: const EdgeInsets.symmetric(vertical: 4),
+  //     child: Row(
+  //       children: [
+  //         const Icon(Icons.check_circle_outline, color: Colors.green, size: 16),
+  //         const SizedBox(width: 8),
+  //         Expanded(
+  //           child: Text(
+  //             "Previously Uploaded: $fileName",
+  //             style: TextStyle(
+  //               fontSize: 12,
+  //               color: Colors.green.shade700,
+  //               fontWeight: FontWeight.w500,
+  //             ),
+  //             maxLines: 1,
+  //             overflow: TextOverflow.ellipsis,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  Widget _pickButton(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.primaryBlue.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: AppColors.primaryBlue, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.primaryBlue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileItem(String key, File file, int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.insert_drive_file,
+            color: AppColors.primaryBlue,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              file.path.split('/').last,
+              style: const TextStyle(fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.visibility_outlined,
+              size: 18,
+              color: Colors.blue,
+            ),
+            onPressed: () => OpenFilex.open(file.path),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18, color: Colors.red),
+            onPressed: () => widget.onRemoveFile(key, index),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _pickDate(String key) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 365)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+    );
+    if (picked != null) {
+      widget.expiryControllers[key]!.text =
+          "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      setState(() {});
+    }
+  }
+}
