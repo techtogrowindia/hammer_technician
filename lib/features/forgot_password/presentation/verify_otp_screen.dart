@@ -6,6 +6,8 @@ import 'package:hammer_app/core/utils/common/widgets/auth_background.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_button.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_textfield.dart';
 import 'package:hammer_app/core/utils/common/widgets/white_card.dart';
+import 'package:hammer_app/core/utils/common/widgets/dynamic_gif_widget.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 
 import '../cubit/forgot_password_cubit.dart';
 import '../cubit/forgot_password_state.dart';
@@ -35,9 +37,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Center(
-                    child: Image.asset(
-                      'assets/gif/hammer_gif.gif',
+                  const Center(
+                    child: DynamicGifWidget(
                       width: 150,
                       height: 150,
                       fit: BoxFit.contain,
@@ -84,12 +85,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                           ),
                         );
                       } else if (state is ForgotPasswordFailure) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(state.message),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                        AppSnackBar.show(context, state.message, isError: true);
                       }
                     },
                     builder: (context, state) {

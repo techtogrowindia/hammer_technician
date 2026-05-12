@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/repositories/profile_repository.dart';
 import '../data/models/festival_model.dart';
+import '../data/models/general_profile_model.dart';
 import 'general_profile_state.dart';
 
 class GeneralProfileCubit extends Cubit<GeneralProfileState> {
@@ -12,9 +13,14 @@ class GeneralProfileCubit extends Cubit<GeneralProfileState> {
   Future<void> loadGeneralProfile() async {
     emit(GeneralProfileLoading());
     try {
-      final profile = await repository.getGeneralProfile();
-      final festivals = await repository.getFestivals();
-      emit(GeneralProfileLoaded(profile, festivals: festivals));
+      final results = await Future.wait([
+        repository.getGeneralProfile(),
+        repository.getFestivals(),
+      ]);
+      emit(GeneralProfileLoaded(
+        results[0] as GeneralProfile,
+        festivals: results[1] as List<Festival>,
+      ));
     } catch (e) {
       emit(GeneralProfileError(e.toString().replaceFirst('Exception: ', '')));
     }

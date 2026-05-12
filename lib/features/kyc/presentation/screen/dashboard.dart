@@ -17,7 +17,10 @@ import 'package:hammer_app/features/profile/data/models/general_profile_model.da
 import 'package:hammer_app/features/profile/presentation/profile_screen.dart';
 import 'package:hammer_app/features/profile/presentation/general_profile_edit_sheet.dart';
 import 'package:hammer_app/features/service/presenation/service_screen.dart';
+import 'package:hammer_app/core/utils/shared_prefs_helper.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -27,6 +30,10 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  String? _token;
+  bool _biometricEnabled = false;
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +41,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadData() async {
+    final token = await SharedPrefsHelper.getToken();
+    final biometricEnabled = await SharedPrefsHelper.isBiometricEnabled();
+    if (mounted) {
+      setState(() {
+        _token = token;
+        _biometricEnabled = biometricEnabled;
+      });
+    }
     context.read<ProfileCubit>().loadProfile();
     context.read<GeneralProfileCubit>().loadGeneralProfile();
     context.read<DynamicContentCubit>().fetchDynamicContent();
@@ -175,19 +190,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const Spacer(),
-          IconButton(
-            onPressed: () {},
-            icon: Icon(
-              Icons.notifications_none_rounded,
-              color: AppColors.primaryBlue,
-              size: sw * 0.075,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
         ],
       ),
     );
+
   }
 
   Widget _buildDynamicNote(double sw) {
@@ -353,6 +359,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               MaterialPageRoute(builder: (_) => const ServicesPage()),
             );
           }),
+          _drawerItem(
+            _biometricEnabled ? Icons.fingerprint : Icons.fingerprint_outlined,
+            _biometricEnabled ? "Disable Biometric" : "Enable Biometric",
+            () async {
+              Navigator.pop(context);
+              await _toggleBiometricFromDrawer();
+            },
+          ),
           const SizedBox(height: 20),
           const Divider(indent: 20, endIndent: 20),
           _drawerItem(Icons.logout_rounded, "Log Out", () async {
@@ -394,6 +408,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       onTap: onTap,
     );
+  }
+
+  Future<void> _toggleBiometricFromDrawer() async {
+    if (_biometricEnabled) {
+      await SharedPrefsHelper.setBiometricEnabled(false);
+      if (!mounted) return;
+      setState(() => _biometricEnabled = false);
+      AppSnackBar.show(context, "Biometric login disabled.");
+      return;
+    }
+
+    final canCheck = await _localAuth.canCheckBiometrics;
+    final supported = await _localAuth.isDeviceSupported();
+    if (!canCheck && !supported) {
+      if (!mounted) return;
+      if (!mounted) return;
+      AppSnackBar.show(context, "Biometric authentication is not available on this device.", isError: true);
+      return;
+    }
+
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Enable Biometric Login"),
+        content: const Text(
+          "Use fingerprint/face authentication for faster login?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text("No"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text("Yes"),
+          ),
+        ],
+      ),
+    );
+
+    if (enable == true) {
+      await SharedPrefsHelper.setBiometricEnabled(true);
+      if (!mounted) return;
+      setState(() => _biometricEnabled = true);
+      AppSnackBar.show(context, "Biometric login enabled.");
+    }
   }
 
   Widget _buildIDCard(double sw, UserProfile? profile, GeneralProfile? gp) {
@@ -508,11 +568,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         width: 90,
                         height: 110,
                         color: Colors.grey[100],
-                        child: const Icon(
-                          Icons.person_rounded,
-                          size: 60,
-                          color: Colors.grey,
-                        ),
+                        child: profile?.documentKycUrls?['photo'] != null
+                            ? Image.network(
+                                profile!.documentKycUrls!['photo']!,
+                                headers: _token != null
+                                    ? {'Authorization': 'Bearer $_token'}
+                                    : null,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(
+                                      Icons.person_rounded,
+                                      size: 60,
+                                      color: Colors.grey,
+                                    ),
+                              )
+                            : const Icon(
+                                Icons.person_rounded,
+                                size: 60,
+                                color: Colors.grey,
+                              ),
                       ),
                     ),
                     const SizedBox(width: 15),
@@ -609,7 +683,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Blood Group: ${gp?.genderInfo?.bloodGroup ?? 'O+ve'}",
+                      "Blood Group: ${profile?.bloodGroup ?? '---'}",
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w500,
@@ -703,7 +777,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       style: TextStyle(fontSize: 14, color: Colors.black87),
                     ),
                     const SizedBox(height: 25),
-                    _supportRow("Support: support@hammerapp.in"),
                     _supportRow("Support: support@hammerapp.in"),
                     _supportRow("WhatsApp: 9788990040"),
                     const SizedBox(height: 30),
@@ -824,16 +897,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           label: 'Spouse/Relation Name',
           initialValue: s?.spouseName,
         ),
-        EditField(
-          key: 'sos_visibility',
-          label: 'Show SOS button to Customers?',
-          initialValue: s?.sosVisibility ?? true,
-          type: EditFieldType.toggle,
-        ),
       ],
     );
 
     if (result != null) {
+      result['sos_visibility'] = true;
       context.read<GeneralProfileCubit>().updateGeneralProfile(fields: result);
     }
   }

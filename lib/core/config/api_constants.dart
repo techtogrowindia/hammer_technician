@@ -65,5 +65,5 @@ class ApiConstants {
   static String get technicianKycStatus => '$baseUrl/api/technician/kyc_status';
   static String get createOrder => '$baseUrl/api/payment/razorpay-order-create';
   static String get generalProfile => '$baseUrl/api/technician/general_profile';
-  static String get fcmToken => '$baseUrl/api/general/fcm-store';
 }
+

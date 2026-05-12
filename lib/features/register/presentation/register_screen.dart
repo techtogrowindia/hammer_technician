@@ -9,6 +9,7 @@ import 'package:hammer_app/core/utils/common/widgets/auth_background.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_button.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_textfield.dart';
 import 'package:hammer_app/core/utils/common/widgets/white_card.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:hammer_app/features/otp/presentation/screens/otp_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -33,12 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: BlocConsumer<RegisterCubit, RegisterState>(
         listener: (context, state) {
           if (state is RegisterFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
+            AppSnackBar.show(context, state.message, isError: true);
           } else if (state is RegisterSuccess) {
             Navigator.pushReplacement(
               context,

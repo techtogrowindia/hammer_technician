@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hammer_app/features/kyc/cubit/kyc_cubit.dart';
 import 'package:hammer_app/features/kyc/cubit/kyc_state.dart';
@@ -68,12 +69,7 @@ class KycStepperListeners extends StatelessWidget {
               });
             }
             if (state is ProfileError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Colors.red,
-                ),
-              );
+              AppSnackBar.show(context, state.message, isError: true);
             }
           },
         ),

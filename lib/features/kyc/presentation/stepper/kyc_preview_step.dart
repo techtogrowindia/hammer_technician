@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:hammer_app/core/colors/colors.dart';
 import 'package:hammer_app/features/kyc/presentation/screen/kyc_signature_screen.dart';
 import 'package:hammer_app/features/kyc/presentation/stepper/kyc_shared_widgets.dart';
+import 'package:hammer_app/features/kyc/presentation/stepper/kyc_stepper_models.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class KycPreviewStep extends StatelessWidget {
@@ -61,6 +62,7 @@ class KycPreviewStep extends StatelessWidget {
   final String? qualification;
   final String? passedOutYear;
   final List<File>? eduCertificateFiles;
+  final List<ExistingDocument>? existingEduCertificates;
   final VoidCallback? onEditEducation;
 
   final Map<String, List<File>> professionalFilesMap;
@@ -124,8 +126,42 @@ class KycPreviewStep extends StatelessWidget {
     this.qualification,
     this.passedOutYear,
     this.eduCertificateFiles,
+    this.existingEduCertificates,
     this.onEditEducation,
   });
+
+  static String _fileNameFromPath(String path) {
+    final parts = path.split(RegExp(r'[/\\]'));
+    return parts.isNotEmpty ? parts.last : path;
+  }
+
+  static String _extractUploadedFileName(Map<String, dynamic>? details) {
+    if (details == null || details.isEmpty) return "Previously Uploaded";
+    final knownKeys = ['file_name', 'filename', 'name', 'original_name', 'key'];
+    for (final k in knownKeys) {
+      final value = details[k];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return "Previously Uploaded";
+  }
+
+  static List<String> _extractUploadedFileNames(Map<String, dynamic>? details) {
+    if (details == null || details.isEmpty) return const [];
+    final candidates = <String>[];
+    if (details['files'] is List) {
+      for (final item in (details['files'] as List)) {
+        if (item is Map<String, dynamic>) {
+          final name = _extractUploadedFileName(item);
+          if (name != "Previously Uploaded") {
+            candidates.add(name);
+          }
+        }
+      }
+    }
+    if (candidates.isNotEmpty) return candidates;
+    final single = _extractUploadedFileName(details);
+    return single == "Previously Uploaded" ? const [] : [single];
+  }
 
   Widget _termsAndConditionsLink(BuildContext context) {
     return Padding(
@@ -280,7 +316,16 @@ class KycPreviewStep extends StatelessWidget {
             children: [
               kycPreviewRow("Qualification", qualification ?? "N/A"),
               kycPreviewRow("Passed Out Year", passedOutYear ?? "N/A"),
-              kycPreviewRow("Documents", "${eduCertificateFiles?.length ?? 0} file(s)"),
+              kycPreviewRow(
+                "Documents",
+                "${(existingEduCertificates?.length ?? 0) + (eduCertificateFiles?.length ?? 0)} file(s)",
+              ),
+              ...?existingEduCertificates?.map(
+                (d) => kycPreviewRow("Uploaded", d.filename),
+              ),
+              ...?eduCertificateFiles?.map(
+                (f) => kycPreviewRow("Selected", _fileNameFromPath(f.path)),
+              ),
             ],
           ),
         kycModernPreviewCard(
@@ -295,16 +340,49 @@ class KycPreviewStep extends StatelessWidget {
             icon: Icons.badge_outlined,
             onEdit: onEditProfessionalDoc!,
             children: [
-              if (professionalFilesMap.isEmpty)
-                kycPreviewRow("Certificates", "None uploaded")
-              else
-                ...professionalFilesMap.entries.where((e) => e.value.isNotEmpty).map((e) {
-                  final key = e.key;
-                  final files = e.value;
+              ...() {
+                final allKeys = <String>{...professionalFilesMap.keys};
+                if (certificateResponse != null) {
+                  for (final svc in certificateResponse.services) {
+                    for (final cert in svc.certificates) {
+                      if (cert.uploaded == true) {
+                        allKeys.add("${svc.serviceId}_${cert.certificateId}");
+                      }
+                    }
+                  }
+                }
+
+                final keysToRender = allKeys.where((key) {
+                  final files = professionalFilesMap[key] ?? const <File>[];
+                  if (files.isNotEmpty) return true;
+                  if (certificateResponse == null) return false;
+                  try {
+                    final parts = key.split('_');
+                    final sId = int.parse(parts[0]);
+                    final cId = int.parse(parts[1]);
+                    for (final svc in certificateResponse.services) {
+                      if (svc.serviceId != sId) continue;
+                      for (final cert in svc.certificates) {
+                        if (cert.certificateId == cId) {
+                          return cert.uploaded == true;
+                        }
+                      }
+                    }
+                  } catch (_) {}
+                  return false;
+                }).toList();
+
+                if (keysToRender.isEmpty) {
+                  return [kycPreviewRow("Certificates", "None uploaded")];
+                }
+
+                return keysToRender.map((key) {
+                  final files = professionalFilesMap[key] ?? const <File>[];
                   
                   // Try to find the certificate name from the response
                   String certName = "Certificate";
                   String categoryName = "";
+                  dynamic certMeta;
                   if (certificateResponse != null) {
                     try {
                       final parts = key.split('_');
@@ -316,6 +394,7 @@ class KycPreviewStep extends StatelessWidget {
                           for (final cert in svc.certificates) {
                             if (cert.certificateId == cId) {
                               certName = cert.certificateName;
+                              certMeta = cert;
                               break;
                             }
                           }
@@ -327,6 +406,13 @@ class KycPreviewStep extends StatelessWidget {
                   final certNo = certNumberControllers[key]?.text ?? "N/A";
                   final isNoExpiry = noExpiryMap[key] ?? true;
                   final expiry = isNoExpiry ? "No Expiry" : (certExpiryControllers[key]?.text ?? "N/A");
+                  final localFileNames = files.map((f) => _fileNameFromPath(f.path)).toList();
+                  final uploadedFileNames = certMeta == null
+                      ? <String>[]
+                      : _extractUploadedFileNames(
+                          certMeta.uploadedDetails as Map<String, dynamic>?,
+                        );
+                  final totalFilesCount = uploadedFileNames.length + localFileNames.length;
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -345,13 +431,20 @@ class KycPreviewStep extends StatelessWidget {
                         if (categoryName.isNotEmpty) kycPreviewRow("Category", categoryName),
                         kycPreviewRow("Number", certNo),
                         kycPreviewRow("Expiry", expiry),
-                        kycPreviewRow("Files", "${files.length} file(s)"),
-                        if (e.key != professionalFilesMap.keys.last)
+                        kycPreviewRow("Files", "$totalFilesCount file(s)"),
+                        ...uploadedFileNames.map(
+                          (name) => kycPreviewRow("Uploaded", name),
+                        ),
+                        ...localFileNames.map(
+                          (name) => kycPreviewRow("Selected", name),
+                        ),
+                        if (key != keysToRender.last)
                           const Divider(height: 20, thickness: 0.5),
                       ],
                     ),
                   );
-                }),
+                }).toList();
+              }(),
             ],
           ),
         kycModernPreviewCard(

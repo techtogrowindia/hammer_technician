@@ -7,6 +7,7 @@ import 'package:hammer_app/core/utils/common/widgets/auth_background.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_button.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_textfield.dart';
 import 'package:hammer_app/core/utils/common/widgets/white_card.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 
 import '../cubit/forgot_password_cubit.dart';
 import '../cubit/forgot_password_state.dart';
@@ -67,12 +68,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ),
                         );
                       } else if (state is ForgotPasswordFailure) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(state.message),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                        AppSnackBar.show(context, state.message, isError: true);
                       }
                     },
                     builder: (context, state) {

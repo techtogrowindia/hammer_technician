@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hammer_app/core/colors/colors.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:hammer_app/features/common/cubit/fetch_key_cubit.dart';
 import 'package:hammer_app/features/common/cubit/fetch_key_state.dart';
 import 'package:hammer_app/features/common/data/services/payment_service.dart';
@@ -36,10 +37,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
     );
     context.read<FetchKeyCubit>().fetchKey();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final profileState = context.read<ProfileCubit>().state;
-      if (profileState is! ProfileLoaded) {
-        context.read<ProfileCubit>().loadProfile();
-      }
+      context.read<ProfileCubit>().loadProfile();
     });
   }
 
@@ -49,12 +47,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
       listenWhen: (prev, curr) => curr is ProfileError,
       listener: (context, state) {
         if (state is ProfileError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
+          AppSnackBar.show(context, state.message, isError: true);
         }
       },
       builder: (context, state) {
@@ -102,7 +95,8 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                   if (allDone || profile.accountStatus == 'active') ...[
+                                  if (allDone ||
+                                      profile.accountStatus == 'active') ...[
                                     _buildDepositSection(profile, allDone),
                                     const SizedBox(height: 24),
                                   ],
@@ -235,7 +229,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: AppColors.primaryBlue,
                               ),
                             ),
                           ),
@@ -248,7 +242,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
                               Text(
                                 "Welcome back,",
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: AppColors.primaryBlue.withOpacity(0.9),
                                   fontSize: 14,
                                   letterSpacing: 0.5,
                                 ),
@@ -256,7 +250,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
                               Text(
                                 profile.name ?? 'Technician',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.primaryBlue,
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: -0.5,
@@ -512,7 +506,11 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(statusIcon, color: statusColor, size: 14),
+                                  Icon(
+                                    statusIcon,
+                                    color: statusColor,
+                                    size: 14,
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     statusText,
@@ -618,19 +616,14 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
                 onPressed: () {
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => const DashboardScreen(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const DashboardScreen()),
                     (route) => false,
                   );
                 },
                 icon: const Icon(Icons.dashboard_rounded),
                 label: const Text(
                   "Go to Dashboard",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
@@ -780,8 +773,6 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
     );
   }
 
-
-
   Widget _buildLogoutAction() {
     return Center(
       child: TextButton.icon(
@@ -860,48 +851,41 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
         final razorpayService = RazorpayService(
           onSuccess: (paymentId, razorOrderId, signature) async {
             try {
-              print("[PaymentFlow] Step 1: Calling PaymentService.updatePayment...");
+              print(
+                "[PaymentFlow] Step 1: Calling PaymentService.updatePayment...",
+              );
               await PaymentService.updatePayment(
                 orderId: orderId,
                 razorpayOrderId: razorOrderId,
                 razorpayPaymentId: paymentId,
               );
-              print("[PaymentFlow] Step 1 DONE. Now calling updateKycStatus...");
-              print("[PaymentFlow] Step 2: technicianId=${profile.id}, kycStatus=verified");
+              print(
+                "[PaymentFlow] Step 1 DONE. Now calling updateKycStatus...",
+              );
+              print(
+                "[PaymentFlow] Step 2: technicianId=${profile.id}, kycStatus=verified",
+              );
               await sl<KycRepository>().updateKycStatus(
                 technicianId: profile.id!,
                 kycStatus: 'verified',
               );
-              print("[PaymentFlow] Step 2 DONE. KYC status updated successfully!");
+              print(
+                "[PaymentFlow] Step 2 DONE. KYC status updated successfully!",
+              );
               if (context.mounted) {
                 context.read<ProfileCubit>().loadProfile();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Payment Successful!"),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                AppSnackBar.show(context, "Payment Successful!", isError: false);
               }
             } catch (e) {
               print("[PaymentFlow] ERROR: $e");
               if (context.mounted) {
                 print("Payment update failed: $e");
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Payment success but update failed: $e"),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
+                AppSnackBar.show(context, "Payment success but update failed: $e", isError: true);
               }
             }
           },
           onFailure: (error) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("Payment Failed: $error"),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
+            AppSnackBar.show(context, "Payment Failed: $error", isError: true);
           },
         );
 
@@ -916,30 +900,13 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
       } else {
         final msg = orderResponse['message'] ?? 'Failed to create order';
         print("Payment Order Creation Failed: $msg");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: Colors.redAccent,
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: "Contact Support",
-              textColor: Colors.white,
-              onPressed: () {}, // Add contact support logic if needed
-            ),
-          ),
-        );
+        AppSnackBar.show(context, msg, isError: true);
       }
     } catch (e) {
       if (context.mounted) Navigator.pop(context);
       final errorMsg = e.toString().replaceFirst('Exception: ', '');
       print("Payment Exception: $errorMsg");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMsg),
-          backgroundColor: Colors.redAccent,
-          duration: const Duration(seconds: 5),
-        ),
-      );
+      AppSnackBar.show(context, errorMsg, isError: true);
     }
   }
 }

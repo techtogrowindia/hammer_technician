@@ -103,8 +103,15 @@ class ProfileService {
         if (value is bool) {
           request.fields[key] = value ? "1" : "0";
         } else if (value is List) {
-          for (var item in value) {
-            request.fields['$key[]'] = item.toString();
+          for (int i = 0; i < value.length; i++) {
+            final item = value[i];
+            if (item is Map) {
+              item.forEach((subKey, subValue) {
+                request.fields['$key[$i][$subKey]'] = subValue.toString();
+              });
+            } else {
+              request.fields['$key[$i]'] = item.toString();
+            }
           }
         } else {
           request.fields[key] = value.toString();

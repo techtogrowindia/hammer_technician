@@ -60,22 +60,60 @@ bool? _asBool(dynamic value) {
   return null;
 }
 
+class Nominee {
+  final String? name;
+  final String? aadharCardNo;
+  final String? phoneNumber;
+  final int? percentage;
+
+  Nominee({this.name, this.aadharCardNo, this.phoneNumber, this.percentage});
+
+  factory Nominee.fromJson(Map<String, dynamic> json) {
+    return Nominee(
+      name: json['name'] ?? json['nominee_name'],
+      aadharCardNo: json['aadhar_card_no'] ?? json['nominee_aadhar_card_no'],
+      phoneNumber: json['phone_number'] ?? json['nominee_phone_number'],
+      percentage: json['percentage'] != null ? int.tryParse(json['percentage'].toString()) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'aadhar_card_no': aadharCardNo,
+    'phone_number': phoneNumber,
+    'percentage': percentage,
+  };
+}
+
 class MaritalInfo {
   final bool? isMarried;
   final String? nomineeName;
   final String? nomineeAadharCardNo;
   final String? nomineePhoneNumber;
+  final List<Nominee>? nominees;
 
-  MaritalInfo({this.isMarried, this.nomineeName, this.nomineeAadharCardNo, this.nomineePhoneNumber});
+  MaritalInfo({
+    this.isMarried,
+    this.nomineeName,
+    this.nomineeAadharCardNo,
+    this.nomineePhoneNumber,
+    this.nominees,
+  });
 
   factory MaritalInfo.fromJson(Map<String, dynamic> json) {
     // Only return data if at least one characteristic key exists
-    if (!json.containsKey('is_married') && !json.containsKey('nominee_name')) return MaritalInfo();
+    if (!json.containsKey('is_married') && 
+        !json.containsKey('nominee_name') && 
+        !json.containsKey('nominees')) return MaritalInfo();
+        
     return MaritalInfo(
       isMarried: _asBool(json['is_married']),
       nomineeName: json['nominee_name'],
       nomineeAadharCardNo: json['nominee_aadhar_card_no'],
       nomineePhoneNumber: json['nominee_phone_number'],
+      nominees: (json['nominees'] as List?)
+          ?.map((e) => Nominee.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

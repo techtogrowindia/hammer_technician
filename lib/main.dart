@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+
 
 import 'package:hammer_app/core/config/app_config.dart';
 import 'package:hammer_app/core/config/config_loader.dart';
-import 'package:hammer_app/core/firebase/local_notification_service.dart';
+
 import 'package:hammer_app/core/utils/common/screens/splash_screen.dart';
 import 'package:hammer_app/core/utils/service_locators.dart';
 import 'package:hammer_app/features/common/cubit/common_details_cubit.dart';
@@ -21,25 +20,12 @@ import 'package:hammer_app/features/profile/cubit/general_profile_cubit.dart';
 import 'package:hammer_app/features/register/cubit/register_cubit.dart';
 import 'package:hammer_app/features/service/cubit/service_cubit.dart';
 import 'package:hammer_app/features/common/cubit/dynamic_content_cubit.dart';
-import 'package:hammer_app/firebase_options_technician.dart';
 
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-}
+
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptionsTechnician.currentPlatform,
-  );
-
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  await LocalNotificationService.init();
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    LocalNotificationService.show(message);
-  });
 
   initializeAppConfig();
   await init();

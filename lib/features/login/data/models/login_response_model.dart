@@ -41,6 +41,8 @@ class User {
   final String? uniqueId;
   final String? kycStatus;
   final Map<String, dynamic>? kycSteps;
+  final String? bloodGroup;
+  final Map<String, dynamic>? documentKycUrls;
 
   User({
     required this.id,
@@ -54,6 +56,8 @@ class User {
     this.uniqueId,
     this.kycStatus,
     this.kycSteps,
+    this.bloodGroup,
+    this.documentKycUrls,
   });
 
   factory User.fromJson(Map<String, dynamic> json, AppType appType) {
@@ -69,6 +73,8 @@ class User {
       uniqueId: json['unique_id'] as String?,
       kycStatus: json['kyc_status'] as String?,
       kycSteps: json['kyc_steps'] as Map<String, dynamic>?,
+      bloodGroup: json['blood_group'] as String?,
+      documentKycUrls: json['document_kyc_urls'] as Map<String, dynamic>?,
     );
   }
 
@@ -85,6 +91,8 @@ class User {
       'kyc_steps': kycSteps,
       'initial_deposit': 'not_paid',
       'initial_deposit_amount': 0,
+      'blood_group': bloodGroup,
+      'document_kyc_urls': documentKycUrls,
     };
   }
 }

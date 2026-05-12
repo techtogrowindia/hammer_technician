@@ -1,10 +1,12 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 
 import 'package:hammer_app/core/colors/colors.dart';
-import 'package:hammer_app/core/firebase/fcm_api.dart';
-import 'package:hammer_app/core/firebase/fcm_service.dart';
+
 import 'package:hammer_app/core/utils/shared_prefs_helper.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_background.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_button.dart';
@@ -38,20 +40,40 @@ class _LoginScreenState extends State<LoginScreen> {
   bool showPassword = false;
   bool rememberMe = false;
   bool navigated = false;
+  bool biometricAvailable = false;
+  bool biometricBusy = false;
+  bool biometricEnabled = false;
+  bool _autoBiometricAttempted = false;
+  final LocalAuthentication _localAuth = LocalAuthentication();
 
   @override
   void initState() {
     super.initState();
-    _loadSavedCredentials();
+    _initializeLoginFlow();
   }
 
-  Future<void> _loadSavedCredentials() async {
+  Future<void> _initializeLoginFlow() async {
     final creds = await SharedPrefsHelper.getCredentials();
+    final enabled = await SharedPrefsHelper.isBiometricEnabled();
+    bool available = false;
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final deviceSupported = await _localAuth.isDeviceSupported();
+      final enrolled = await _localAuth.getAvailableBiometrics();
+      available = (canCheck || deviceSupported) && enrolled.isNotEmpty;
+    } catch (_) {
+      available = false;
+    }
+
+    if (!mounted) return;
     mobile.text = creds["phone"];
     password.text = creds["password"];
     setState(() {
       rememberMe = creds["remember"];
+      biometricEnabled = enabled;
+      biometricAvailable = available;
     });
+    await _checkBiometricOnOpen();
   }
 
   @override
@@ -62,12 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
           BlocListener<LoginCubit, LoginState>(
             listener: (context, state) async {
               if (state is LoginFailure) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                AppSnackBar.show(context, state.message, isError: true);
               }
 
               if (state is LoginSuccess) {
@@ -85,20 +102,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   'data': user.toProfileJson(),
                 });
 
-                final fcmService = FcmService();
-                final fcmToken = await fcmService.getToken();
-                if (fcmToken != null) {
-                  await FcmApi.sendFcmToken(fcmToken: fcmToken);
-                }
-                fcmService.listenTokenRefresh((newToken) async {
-                  await FcmApi.sendFcmToken(fcmToken: newToken);
-                });
-
                 if (!user.mobileVerified) {
                   _showRequestOtpDialog(context, mobile.text);
                   return;
                 }
 
+                await _maybeAskToEnableBiometric();
                 navigated = true;
 
                 final steps = user.kycSteps;
@@ -126,14 +135,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                   return;
                 }
+                if (user.kycStatus != 'verified') {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => KycOnboardingScreen()),
+                    (route) => false,
+                  );
+                  return;
+                }
 
                 if (user.kycStatus == 'verified') {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Login successful!"),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  AppSnackBar.show(context, "Login successful!");
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(builder: (_) => const DashboardScreen()),
@@ -148,12 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
           BlocListener<MobileOtpCubit, MobileOtpState>(
             listener: (context, state) async {
               if (state is MobileOtpFailure) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                AppSnackBar.show(context, state.message, isError: true);
               }
 
               if (state is MobileOtpSent) {
@@ -169,7 +176,6 @@ class _LoginScreenState extends State<LoginScreen> {
               }
             },
           ),
-
         ],
 
         child: AuthBackground(
@@ -288,13 +294,41 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         BlocBuilder<LoginCubit, LoginState>(
                           builder: (context, state) {
+                            final loading = state is LoginLoading;
                             return AuthButton(
                               text: "LOGIN",
-                              loading: state is LoginLoading,
+                              loading: loading || biometricBusy,
                               onTap: _onLogin,
                             );
                           },
                         ),
+
+                        if (biometricAvailable && biometricEnabled) ...[
+                          const SizedBox(height: 20),
+                          Center(
+                            child: InkWell(
+                              onTap: _loginWithBiometric,
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.fingerprint,
+                                    size: 40,
+                                    color: AppColors.primaryBlue,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    "Login with Biometric",
+                                    style: TextStyle(
+                                      color: AppColors.primaryBlue,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
 
                         const SizedBox(height: 30),
 
@@ -343,14 +377,253 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _onLogin() {
-    if (_formKey.currentState!.validate()) {
-      final request = LoginRequest(
-        mobile: mobile.text.trim(),
-        password: password.text.trim(),
-      );
-      context.read<LoginCubit>().submit(request);
+  Future<void> _onLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final isFirstPrompt =
+        !(await SharedPrefsHelper.isLocationPromptShownOnce());
+    if (isFirstPrompt) {
+      final userAllowed = await _showLocationAccessDialog();
+      await SharedPrefsHelper.markLocationPromptShownOnce();
+      if (!userAllowed) return;
     }
+
+    final hasPermission = await _ensureLocationPermission();
+    if (!hasPermission) {
+      AppSnackBar.show(
+        context,
+        "Location permission is required to login.",
+        isError: true,
+      );
+      return;
+    }
+
+    final request = LoginRequest(
+      mobile: mobile.text.trim(),
+      password: password.text.trim(),
+    );
+    context.read<LoginCubit>().submit(request);
+  }
+
+  Future<bool> _showLocationAccessDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      height: 42,
+                      width: 42,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryBlue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.location_on_outlined,
+                        color: AppColors.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        "Location Access Required",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryBlue,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  "Hammer Technician collects location data to:\n\n"
+                  "• Track technician attendance\n"
+                  "• Verify live service location\n"
+                  "• Enable customer service updates\n\n"
+                  "Location data may be collected even when the app is closed or not in use for technician tracking and assigned service monitoring.\n\n"
+                  "Your location data is not shared with third parties.",
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text("Deny"),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text("Allow"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    return result ?? false;
+  }
+
+  Future<bool> _ensureLocationPermission() async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> _checkBiometricOnOpen() async {
+    if (!mounted || _autoBiometricAttempted) {
+      return;
+    }
+    if (!biometricEnabled || !biometricAvailable) {
+      return;
+    }
+    if (mobile.text.trim().isEmpty || password.text.trim().isEmpty) {
+      return;
+    }
+
+    _autoBiometricAttempted = true;
+    // Small delay to ensure the login screen is fully rendered
+    // before the system biometric dialog appears
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    await _loginWithBiometric();
+  }
+
+  Future<void> _loginWithBiometric() async {
+    setState(() => biometricBusy = true);
+    try {
+      final didAuthenticate = await _localAuth.authenticate(
+        localizedReason: 'Authenticate to login to Hammer App',
+        biometricOnly: false,
+        persistAcrossBackgrounding: true,
+      );
+
+      if (!didAuthenticate || !mounted) return;
+
+      if (mobile.text.trim().isEmpty || password.text.trim().isEmpty) {
+        AppSnackBar.show(
+          context,
+          "Please login manually once to save credentials for biometric login.",
+          isError: true,
+        );
+        return;
+      }
+
+      await _submitLoginRequest();
+    } catch (e) {
+      // Silently ignore user cancellation and other common setup errors
+      // so the user can just use the manual login button without distraction
+      if (e.toString().contains('userCanceled') ||
+          e.toString().contains('NotEnrolled') ||
+          e.toString().contains('LockedOut')) {
+        return;
+      }
+
+      if (!mounted) return;
+      AppSnackBar.show(context, "Biometric Error: $e", isError: true);
+    } finally {
+      if (mounted) setState(() => biometricBusy = false);
+    }
+  }
+
+  Future<void> _maybeAskToEnableBiometric() async {
+    if (!biometricAvailable) return;
+    final alreadyAsked = await SharedPrefsHelper.isBiometricPromptAskedOnce();
+    if (alreadyAsked) return;
+
+    final enable = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("Enable Biometric Login"),
+          content: const Text(
+            "Would you like to enable biometric login for quicker sign in next time?",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text("No"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text("Yes"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (enable == true) {
+      await SharedPrefsHelper.setBiometricEnabled(true);
+      await SharedPrefsHelper.saveCredentials(
+        mobile.text.trim(),
+        password.text.trim(),
+        true,
+      );
+      if (mounted) {
+        setState(() {
+          biometricEnabled = true;
+          rememberMe = true;
+        });
+      }
+    }
+
+    await SharedPrefsHelper.markBiometricPromptAskedOnce();
+  }
+
+  Future<void> _submitLoginRequest() async {
+    final request = LoginRequest(
+      mobile: mobile.text.trim(),
+      password: password.text.trim(),
+    );
+    context.read<LoginCubit>().submit(request);
   }
 
   void _showRequestOtpDialog(BuildContext context, String mobile) {
@@ -382,10 +655,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  bool _isKycStepCompleted(
-    Map<String, dynamic>? steps,
-    String key,
-  ) {
+  bool _isKycStepCompleted(Map<String, dynamic>? steps, String key) {
     if (steps == null) return false;
     final dynamic raw = steps[key];
     if (raw is Map<String, dynamic>) {

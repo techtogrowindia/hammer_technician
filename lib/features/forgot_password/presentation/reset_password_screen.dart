@@ -6,6 +6,7 @@ import 'package:hammer_app/core/utils/common/widgets/auth_background.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_button.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_textfield.dart';
 import 'package:hammer_app/core/utils/common/widgets/white_card.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:hammer_app/features/login/presentation/screens/login_screen.dart';
 
 import '../cubit/forgot_password_cubit.dart';
@@ -91,12 +92,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   BlocConsumer<ForgotPasswordCubit, ForgotPasswordState>(
                     listener: (context, state) {
                       if (state is ResetPasswordSuccess) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(state.message),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
+                        AppSnackBar.show(context, state.message, isError: false);
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(
@@ -105,12 +101,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           (route) => false,
                         );
                       } else if (state is ForgotPasswordFailure) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(state.message),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                        AppSnackBar.show(context, state.message, isError: true);
                       }
                     },
                     builder: (context, state) {

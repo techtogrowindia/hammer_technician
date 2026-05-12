@@ -193,4 +193,6 @@ class KycCubit extends Cubit<KycState> {
       emit(KycError(e.toString()));
     }
   }
+
+  void clear() => emit(KycInitial());
 }

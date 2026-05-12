@@ -13,6 +13,10 @@ import 'package:hammer_app/features/profile/data/models/festival_model.dart';
 import 'package:hammer_app/features/profile/data/models/general_profile_model.dart';
 import 'package:hammer_app/features/profile/data/models/profile_response_model.dart';
 import 'package:hammer_app/features/profile/presentation/general_profile_edit_sheet.dart';
+import 'package:hammer_app/core/utils/shared_prefs_helper.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
+import 'package:hammer_app/features/kyc/presentation/stepper/kyc_data_loader.dart';
+
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -22,13 +26,37 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late GeneralProfileCubit _generalCubit;
+  String? _token;
+  Map<String, dynamic>? _fullKycData;
+
 
   @override
   void initState() {
     super.initState();
+    _loadToken();
     context.read<ProfileCubit>().loadProfile();
     _generalCubit = sl<GeneralProfileCubit>();
     _generalCubit.loadGeneralProfile();
+    _fetchKycData();
+  }
+
+  Future<void> _fetchKycData() async {
+    final data = await KycDataLoader.fetchFullKyc();
+    if (mounted) {
+      setState(() {
+        _fullKycData = data;
+      });
+    }
+  }
+
+
+  Future<void> _loadToken() async {
+    final token = await SharedPrefsHelper.getToken();
+    if (mounted) {
+      setState(() {
+        _token = token;
+      });
+    }
   }
 
   @override
@@ -187,25 +215,29 @@ class _ProfilePageState extends State<ProfilePage> {
                           _buildSectionTitle("Selected Benefits & Details"),
                           _buildDetailedTile(
                             Icons.celebration_rounded,
-                            "Welfare Benefits",
+                            "Bonus",
                             (gp?.bonusPoints?.festivalSelection?.isNotEmpty ?? false)
                                 ? "${gp?.bonusPoints?.festivalSelection?.length} Festival Selected"
                                 : "No festivals selected",
-                            ((gp?.bonusPoints?.festivalSelection?.isEmpty ?? true)) ? () => _editBonusPoints(gp, festivals) : null,
+                            (gp?.bonusPoints?.festivalSelection?.isEmpty ?? true) 
+                                ? () => _editBonusPoints(gp, festivals) 
+                                : null,
                             sw,
                             gp?.bonusPoints?.festivalSelection?.isNotEmpty ?? false,
-                            isReadOnly: (gp?.bonusPoints?.festivalSelection?.isNotEmpty ?? false),
                             statusLabel: "Selected",
+                            showEditIcon: (gp?.bonusPoints?.festivalSelection?.isEmpty ?? true),
                           ),
                           _buildDetailedTile(
                             Icons.card_membership_rounded,
                             "Govt Welfare Card",
                             _fmt(gp?.govtWelfareCard?.cardTypeSchemeName),
-                            (gp?.govtWelfareCard?.haveWelfareCard != true) ? () => _editWelfare(gp) : null,
+                            (gp?.govtWelfareCard?.haveWelfareCard != true) 
+                                ? () => _editWelfare(gp) 
+                                : null,
                             sw,
                             gp?.govtWelfareCard?.haveWelfareCard == true,
-                            isReadOnly: gp?.govtWelfareCard?.haveWelfareCard == true,
                             statusLabel: "Registered",
+                            showEditIcon: (gp?.govtWelfareCard?.haveWelfareCard != true),
                           ),
                           _buildDetailedTile(
                             Icons.account_balance_rounded,
@@ -218,7 +250,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                           _buildDetailedTile(
                             Icons.health_and_safety_rounded,
-                            "Insurance Details",
+                            "Personal Insurance",
                             _fmt(gp?.insuranceDetails?.insuranceProvider),
                             (gp?.insuranceDetails?.insuranceProvider == null) ? () => _editInsurance(gp) : null,
                             sw,
@@ -231,10 +263,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           _buildSectionTitle("Other Information"),
                           _buildDetailedTile(
                             Icons.family_restroom_rounded,
-                            "Marital Status",
+                            "Marital & Nominees",
                             (gp?.maritalInfo?.isMarried ?? false)
-                                ? gp?.spouseEmergency?.spouseName ?? 'Married'
-                                : "Single",
+                                ? "${gp?.spouseEmergency?.spouseName ?? 'Married'} | ${(gp?.maritalInfo?.nominees?.length ?? 0)} Nominees"
+                                : "Single | ${(gp?.maritalInfo?.nominees?.length ?? 0)} Nominees",
                             () => _editMarital(gp), // Perpetually editable
                             sw,
                             gp?.maritalInfo?.isMarried != null,
@@ -428,11 +460,19 @@ class _ProfilePageState extends State<ProfilePage> {
                     CircleAvatar(
                       radius: sw * 0.1,
                       backgroundColor: Colors.white,
-                      child: Icon(
-                        Icons.person_rounded,
-                        size: sw * 0.1,
-                        color: AppColors.primaryBlue,
-                      ),
+                      backgroundImage: (profile?.documentKycUrls?['photo'] != null && _token != null)
+                          ? NetworkImage(
+                              profile!.documentKycUrls!['photo']!,
+                              headers: {'Authorization': 'Bearer $_token'},
+                            )
+                          : null,
+                      child: (profile?.documentKycUrls?['photo'] == null || _token == null)
+                          ? Icon(
+                              Icons.person_rounded,
+                              size: sw * 0.1,
+                              color: AppColors.primaryBlue,
+                            )
+                          : null,
                     ),
                   ],
                 ),
@@ -693,6 +733,7 @@ class _ProfilePageState extends State<ProfilePage> {
     bool isComplete, {
     bool isReadOnly = false,
     String? statusLabel,
+    bool showEditIcon = true,
   }) {
     final canEdit = onEdit != null && !isReadOnly;
     return Container(
@@ -770,7 +811,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
-                  if (canEdit)
+                  if (canEdit && showEditIcon)
                     Icon(
                       Icons.edit_note_rounded,
                       size: sw * 0.05,
@@ -796,9 +837,28 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _editMarital(GeneralProfile? gp) async {
     final m = gp?.maritalInfo;
     final s = gp?.spouseEmergency;
+    
+    // Map existing nominees to the format expected by the edit sheet
+    final initialNominees = m?.nominees?.map((n) => {
+      'name': n.name ?? '',
+      'aadhar_card_no': n.aadharCardNo ?? '',
+      'phone_number': n.phoneNumber ?? '',
+      'percentage': n.percentage ?? 0,
+    }).toList() ?? [];
+
+    // Fallback to legacy fields if nominees array is empty
+    if (initialNominees.isEmpty && m?.nomineeName != null) {
+      initialNominees.add({
+        'name': m?.nomineeName ?? '',
+        'aadhar_card_no': m?.nomineeAadharCardNo ?? '',
+        'phone_number': m?.nomineePhoneNumber ?? '',
+        'percentage': 100,
+      });
+    }
+
     final result = await showProfileEditSheet(
       context: context,
-      title: "Marital Info",
+      title: "Marital & Nominee Info",
       fields: [
         EditField(
           key: 'is_married',
@@ -822,24 +882,29 @@ class _ProfilePageState extends State<ProfilePage> {
           dependsOnValue: true,
         ),
         EditField(
-          key: 'nominee_name',
-          label: 'Nominee Name',
-          initialValue: m?.nomineeName,
-        ),
-        EditField(
-          key: 'nominee_aadhar_card_no',
-          label: 'Nominee Aadhar',
-          initialValue: m?.nomineeAadharCardNo,
-        ),
-        EditField(
-          key: 'nominee_phone_number',
-          label: 'Nominee Phone',
-          initialValue: m?.nomineePhoneNumber,
-          type: EditFieldType.phone,
+          key: 'nominees',
+          label: 'Nominees',
+          initialValue: initialNominees,
+          type: EditFieldType.nomineeList,
         ),
       ],
     );
-    if (result != null) _submitFields(result);
+
+    if (result != null) {
+      // Validation: Total percentage must be <= 100
+      final nominees = result['nominees'] as List?;
+      if (nominees != null) {
+        int total = 0;
+        for (var n in nominees) {
+          total += (n['percentage'] as int? ?? 0);
+        }
+        if (total > 100) {
+          showSnackBar(context, "Total nominee percentage cannot exceed 100%", isError: true);
+          return;
+        }
+      }
+      _submitFields(result);
+    }
   }
 
   Future<void> _editSpouseEmergency(GeneralProfile? gp) async {
@@ -854,15 +919,12 @@ class _ProfilePageState extends State<ProfilePage> {
           initialValue: s?.emergencyContactNoSos,
           type: EditFieldType.phone,
         ),
-        EditField(
-          key: 'sos_visibility',
-          label: 'SOS Visibility',
-          initialValue: s?.sosVisibility ?? false,
-          type: EditFieldType.toggle,
-        ),
       ],
     );
-    if (result != null) _submitFields(result);
+    if (result != null) {
+      result['sos_visibility'] = true;
+      _submitFields(result);
+    }
   }
 
   Future<void> _editBonusPoints(
@@ -918,6 +980,19 @@ class _ProfilePageState extends State<ProfilePage> {
           key: 'colour_preference',
           label: 'Color Preference',
           initialValue: gp?.utilityTshirt?.colourPreference,
+          type: EditFieldType.dropdown,
+          dropdownOptions: [
+            'Black',
+            'White',
+            'Navy Blue',
+            'Royal Blue',
+            'Red',
+            'Grey',
+            'Maroon',
+            'Green',
+            'Yellow',
+            'Orange'
+          ],
         ),
       ],
     );
@@ -1067,6 +1142,30 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _editEarning(GeneralProfile? gp) async {
     final e = gp?.earningScreen;
+
+    // Autofetch if local earning screen is empty
+    String? bankName = e?.paymentMethod;
+    String? accNo = e?.bankAccountNumber;
+    String? ifsc = e?.ifscCode;
+    String? upi = e?.upiId;
+
+    if ((bankName == null || bankName.isEmpty) && (accNo == null || accNo.isEmpty)) {
+      if (_fullKycData == null) {
+        // Fallback: Fetch if not already available
+        _fullKycData = await KycDataLoader.fetchFullKyc();
+      }
+
+      if (_fullKycData != null) {
+        final bankKyc = _fullKycData!['bank_kyc'];
+        if (bankKyc != null) {
+          if (bankName == null || bankName.isEmpty) bankName = bankKyc['bank_name']?.toString();
+          if (accNo == null || accNo.isEmpty) accNo = bankKyc['account_number']?.toString();
+          if (ifsc == null || ifsc.isEmpty) ifsc = bankKyc['ifsc_code']?.toString();
+          if (upi == null || upi.isEmpty) upi = bankKyc['upi_id']?.toString();
+        }
+      }
+    }
+
     final result = await showProfileEditSheet(
       context: context,
       title: "Economic Details",
@@ -1074,23 +1173,24 @@ class _ProfilePageState extends State<ProfilePage> {
         EditField(
           key: 'payment_method',
           label: 'Bank Name',
-          initialValue: e?.paymentMethod,
+          initialValue: bankName,
         ),
         EditField(
           key: 'bank_account_number',
           label: 'Account Number',
-          initialValue: e?.bankAccountNumber,
+          initialValue: accNo,
         ),
         EditField(
           key: 'ifsc_code',
           label: 'IFSC Code',
-          initialValue: e?.ifscCode,
+          initialValue: ifsc,
         ),
-        EditField(key: 'upi_id', label: 'UPI ID', initialValue: e?.upiId),
+        EditField(key: 'upi_id', label: 'UPI ID', initialValue: upi),
       ],
     );
     if (result != null) _submitFields(result);
   }
+
 
   Future<void> _submitFields(Map<String, dynamic> result) async {
     final fields = <String, dynamic>{};
@@ -1121,14 +1221,7 @@ class _ProfilePageState extends State<ProfilePage> {
     String message, {
     bool isError = false,
   }) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? AppColors.danger : AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    AppSnackBar.show(context, message, isError: isError);
   }
 }
 

@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_background.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_button.dart';
 import 'package:hammer_app/core/utils/common/widgets/white_card.dart';
+import 'package:hammer_app/core/utils/common/widgets/dynamic_gif_widget.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:hammer_app/features/kyc/cubit/kyc_cubit.dart';
 import 'package:hammer_app/features/kyc/cubit/kyc_state.dart';
 import 'package:hammer_app/features/kyc/presentation/screen/kyc_onboarding_screen.dart';
@@ -42,17 +44,10 @@ class _KycVerificationOtpScreenState extends State<KycVerificationOtpScreen> {
     return BlocListener<KycCubit, KycState>(
       listener: (context, state) {
         if (state is KycError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
-          );
+          AppSnackBar.show(context, state.message, isError: true);
         }
         if (state is KycOtpVerified) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("KYC verified successfully"),
-              backgroundColor: Colors.green,
-            ),
-          );
+          AppSnackBar.show(context, "KYC verified successfully", isError: false);
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const KycOnboardingScreen()),
@@ -76,10 +71,8 @@ class _KycVerificationOtpScreenState extends State<KycVerificationOtpScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Center(
-                          
-                          child: Image.asset(
-                            'assets/gif/hammer_gif.gif',
+                        const Center(
+                          child: DynamicGifWidget(
                             width: 150,
                             height: 150,
                             fit: BoxFit.contain,

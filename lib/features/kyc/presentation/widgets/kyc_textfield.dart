@@ -17,6 +17,7 @@ class KycTextField extends StatelessWidget {
   final String? errorText;
   final String? hintText;
   final ValueChanged<String>? onChanged;
+  final bool? enableInteractiveSelection;
 
   const KycTextField({
     super.key,
@@ -34,6 +35,7 @@ class KycTextField extends StatelessWidget {
     this.errorText,
     this.hintText,
     this.onChanged,
+    this.enableInteractiveSelection = true,
   });
 
   @override
@@ -61,6 +63,15 @@ class KycTextField extends StatelessWidget {
           maxLength: maxLength,
           maxLines: maxLines,
           inputFormatters: inputFormatters,
+          enableInteractiveSelection: enableInteractiveSelection,
+          contextMenuBuilder: (context, editableTextState) {
+            if (enableInteractiveSelection == false) {
+              return const SizedBox.shrink();
+            }
+            return AdaptiveTextSelectionToolbar.editableText(
+              editableTextState: editableTextState,
+            );
+          },
           style: const TextStyle(
             fontSize: 15,
             color: AppColors.textPrimary,

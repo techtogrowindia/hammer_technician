@@ -215,6 +215,7 @@ class _KycProfessionalDocumentStepState
                       svc.serviceId,
                       mandatoryCerts.firstWhere(
                         (c) => c.certificateId == selectedId,
+                        orElse: () => mandatoryCerts.first,
                       ),
                       isAdditional: false,
                     ),
@@ -266,21 +267,54 @@ class _KycProfessionalDocumentStepState
                   Builder(
                     builder: (_) {
                       final allCerts = svc.certificates;
-                      final targetCert = allCerts.firstWhere(
-                        (c) =>
-                            !c.isMandatory &&
-                            c.certificateId != selectedId &&
-                            (c.certificateName.toLowerCase().contains(
+                      CertificateItem? targetCert;
+
+                      if (allCerts.isNotEmpty) {
+                        // Try to find an optional certificate that isn't the one already selected as mandatory
+                        final optionalCerts = allCerts
+                            .where(
+                              (c) =>
+                                  !c.isMandatory && c.certificateId != selectedId,
+                            )
+                            .toList();
+
+                        if (optionalCerts.isNotEmpty) {
+                          targetCert = optionalCerts.firstWhere(
+                            (c) =>
+                                c.certificateName.toLowerCase().contains(
                                   'other',
                                 ) ||
                                 c.certificateName.toLowerCase().contains(
                                   'additional',
-                                )),
-                        orElse: () => allCerts.firstWhere(
-                          (c) =>
-                              !c.isMandatory && c.certificateId != selectedId,
-                          orElse: () => allCerts.first,
-                        ),
+                                ),
+                            orElse: () => optionalCerts.first,
+                          );
+                        } else {
+                          // Fallback: Use any cert that isn't the selected one, or just the first one
+                          targetCert = allCerts.firstWhere(
+                            (c) => c.certificateId != selectedId,
+                            orElse: () => allCerts.first,
+                          );
+                        }
+                      }
+
+                      // If still null (service has no certs), try to find ANY valid certificate ID from the whole response
+                      if (targetCert == null &&
+                          widget.certificateResponse != null) {
+                        for (final s in widget.certificateResponse!.services) {
+                          if (s.certificates.isNotEmpty) {
+                            targetCert = s.certificates.first;
+                            break;
+                          }
+                        }
+                      }
+
+                      // Final fallback to avoid ID 0 if possible (using ID 1 as a common default)
+                      targetCert ??= CertificateItem(
+                        certificateId: 1,
+                        certificateName: "Additional Document",
+                        isMandatory: false,
+                        uploaded: false,
                       );
 
                       return Padding(

@@ -17,4 +17,6 @@ class CommonDetailsCubit extends Cubit<CommonDetailsState> {
       emit(CommonDetailsError(e.toString()));
     }
   }
+
+  void clear() => emit(CommonDetailsInitial());
 }

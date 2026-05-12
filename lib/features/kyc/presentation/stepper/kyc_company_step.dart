@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hammer_app/core/colors/colors.dart';
 import 'package:hammer_app/features/kyc/cubit/kyc_cubit.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:hammer_app/features/kyc/presentation/widgets/kyc_textfield.dart';
 
 class KycCompanyStep extends StatelessWidget {
@@ -91,50 +92,49 @@ class KycCompanyStep extends StatelessWidget {
                     )
                   : gstVerified
                       ? const SizedBox.shrink()
-                      : Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ElevatedButton(
-                            onPressed: () {
-                              if (gstController.text.length != 15) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      "Enter valid 15 digit GST number",
+                      : ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: gstController,
+                          builder: (context, value, _) {
+                            if (value.text.isEmpty) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  if (gstController.text.length != 15) {
+                                    AppSnackBar.show(context, "Enter valid 15 digit GST number", isError: true);
+                                    return;
+                                  }
+                                  context.read<KycCubit>().verifyGst(
+                                        gstController.text.trim(),
+                                        hasFirm: hasFirm,
+                                        hasGst: hasGst,
+                                      );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryAmber,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.verified_user,
+                                      size: 18,
+                                      color: Colors.white,
                                     ),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                                return;
-                              }
-                              context.read<KycCubit>().verifyGst(
-                                    gstController.text.trim(),
-                                    hasFirm: hasFirm,
-                                    hasGst: hasGst,
-                                  );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryAmber,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.verified_user,
-                                  size: 18,
-                                  color: Colors.white,
+                                    SizedBox(width: 4),
+                                    Text(
+                                      "Verify",
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(width: 4),
-                                Text(
-                                  "Verify",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            );
+                          },
                         ),
             ),
           ),

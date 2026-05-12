@@ -28,7 +28,7 @@ class EditField {
   });
 }
 
-enum EditFieldType { text, date, toggle, dropdown, file, phone, multiSelect }
+enum EditFieldType { text, date, toggle, dropdown, file, phone, multiSelect, nomineeList }
 
 /// Shows a bottom sheet for editing a profile section.
 /// Returns a map of changed fields (String keys, String or File values) or null if cancelled.
@@ -59,6 +59,7 @@ class _EditSheetBodyState extends State<_EditSheetBody> {
   final _formKey = GlobalKey<FormState>();
   final Map<String, dynamic> _values = {};
   final Map<String, TextEditingController> _controllers = {};
+  final Map<String, TextEditingController> _nomineeControllers = {};
 
   @override
   void initState() {
@@ -67,13 +68,29 @@ class _EditSheetBodyState extends State<_EditSheetBody> {
       _values[f.key] = f.initialValue ?? '';
       if (f.type == EditFieldType.text || f.type == EditFieldType.phone) {
         _controllers[f.key] = TextEditingController(text: f.initialValue ?? '');
+      } else if (f.type == EditFieldType.nomineeList) {
+        final nominees = (f.initialValue as List?) ?? [];
+        for (int i = 0; i < nominees.length; i++) {
+          final n = nominees[i] as Map<String, dynamic>;
+          _initNomineeControllers(f.key, i, n);
+        }
       }
+    }
+  }
+
+  void _initNomineeControllers(String listKey, int index, Map<String, dynamic> data) {
+    for (final fieldKey in ['name', 'aadhar_card_no', 'phone_number', 'percentage']) {
+      final ctrlKey = "${listKey}_${index}_$fieldKey";
+      _nomineeControllers[ctrlKey] = TextEditingController(text: data[fieldKey]?.toString() ?? '');
     }
   }
 
   @override
   void dispose() {
     for (final c in _controllers.values) {
+      c.dispose();
+    }
+    for (final c in _nomineeControllers.values) {
       c.dispose();
     }
     super.dispose();
@@ -159,6 +176,7 @@ class _EditSheetBodyState extends State<_EditSheetBody> {
       ),
     );
   }
+
   Widget _buildField(EditField field) {
     // Dependency check
     if (field.dependsOnKey != null) {
@@ -369,8 +387,169 @@ class _EditSheetBodyState extends State<_EditSheetBody> {
             ),
           ),
         );
+
+      case EditFieldType.nomineeList:
+        final nominees = (_values[field.key] as List?) ?? [];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(field.label, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                  TextButton.icon(
+                    onPressed: () => _addNominee(field.key),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text("Add Nominee"),
+                    style: TextButton.styleFrom(foregroundColor: AppColors.primaryAmber),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...nominees.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final n = entry.value as Map<String, dynamic>;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.inputFill,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: AppColors.primaryBlue,
+                            child: Text("${idx + 1}", style: const TextStyle(fontSize: 10, color: Colors.white)),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              n['name']?.toString().isNotEmpty == true ? n['name'] : "New Nominee",
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                            onPressed: () => _removeNominee(field.key, idx),
+                          ),
+                        ],
+                      ),
+                      const Divider(),
+                      _buildNomineeField(field.key, idx, 'name', 'Name', Icons.person),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: _buildNomineeField(field.key, idx, 'aadhar_card_no', 'Aadhar', Icons.badge)),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildNomineeField(field.key, idx, 'phone_number', 'Phone', Icons.phone, type: TextInputType.phone)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _buildNomineeField(field.key, idx, 'percentage', 'Share Percentage (0-100)', Icons.percent, type: TextInputType.number),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
     }
     return const SizedBox();
+  }
+
+  Widget _buildNomineeField(String listKey, int index, String fieldKey, String label, IconData icon, {TextInputType type = TextInputType.text}) {
+    final ctrlKey = "${listKey}_${index}_$fieldKey";
+    final controller = _nomineeControllers[ctrlKey];
+    
+    return TextFormField(
+      controller: controller,
+      keyboardType: type,
+      style: const TextStyle(fontSize: 13),
+      decoration: InputDecoration(
+        isDense: true,
+        labelText: label,
+        prefixIcon: Icon(icon, size: 16, color: AppColors.primaryAmber),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
+      onChanged: (v) {
+        setState(() {
+          if (fieldKey == 'percentage') {
+            final val = int.tryParse(v) ?? 0;
+            _values[listKey][index][fieldKey] = val;
+            
+            // Logic for instant update when exactly 2 nominees
+            final nominees = _values[listKey] as List;
+            if (nominees.length == 2) {
+              final otherIdx = index == 0 ? 1 : 0;
+              final remaining = (100 - val).clamp(0, 100);
+              nominees[otherIdx]['percentage'] = remaining;
+              
+              // Update the other controller instantly
+              final otherCtrlKey = "${listKey}_${otherIdx}_percentage";
+              if (_nomineeControllers.containsKey(otherCtrlKey)) {
+                _nomineeControllers[otherCtrlKey]!.text = remaining.toString();
+              }
+            }
+          } else {
+            _values[listKey][index][fieldKey] = v;
+          }
+        });
+      },
+    );
+  }
+
+  void _addNominee(String key) {
+    setState(() {
+      final list = List<Map<String, dynamic>>.from(_values[key] ?? []);
+      
+      // Calculate total current percentage
+      int totalCurrent = 0;
+      for (var n in list) {
+        totalCurrent += (n['percentage'] as int? ?? 0);
+      }
+      
+      // Default to remaining percentage (max 100)
+      int remaining = 100 - totalCurrent;
+      if (remaining < 0) remaining = 0;
+
+      final newData = {
+        'name': '',
+        'aadhar_card_no': '',
+        'phone_number': '',
+        'percentage': remaining
+      };
+      
+      list.add(newData);
+      _values[key] = list;
+      _initNomineeControllers(key, list.length - 1, newData);
+    });
+  }
+
+  void _removeNominee(String key, int index) {
+    setState(() {
+      final list = List<Map<String, dynamic>>.from(_values[key] ?? []);
+      list.removeAt(index);
+      _values[key] = list;
+      
+      // Clear controllers for this index and shift others
+      _rebuildNomineeControllers(key, list);
+    });
+  }
+
+  void _rebuildNomineeControllers(String listKey, List<Map<String, dynamic>> list) {
+    // Remove all keys starting with listKey
+    _nomineeControllers.removeWhere((key, _) => key.startsWith("${listKey}_"));
+    for (int i = 0; i < list.length; i++) {
+      _initNomineeControllers(listKey, i, list[i]);
+    }
   }
 
   Future<void> _pickDate(EditField field) async {

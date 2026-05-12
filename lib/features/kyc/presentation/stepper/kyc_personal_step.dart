@@ -151,37 +151,43 @@ class KycPersonalStep extends StatelessWidget {
                 )
               : isPanLinked == true
                   ? const SizedBox.shrink()
-                  : Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ElevatedButton(
-                        onPressed: onCheckPanAadharLink,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isPanLinked == false
+                  : ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: panController,
+                      builder: (context, value, _) {
+                        if (value.text.isEmpty) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ElevatedButton(
+                            onPressed: onCheckPanAadharLink,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isPanLinked == false
                                   ? Colors.red.shade100
                                   : AppColors.primaryBlue,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isPanLinked == false
+                              foregroundColor: Colors.white,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isPanLinked == false
                                       ? Icons.warning_amber_rounded
                                       : Icons.verified_user,
-                              size: 18,
-                              color: Colors.white,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  "Verify",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 4),
-                            const Text(
-                              "Verify",
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     ),
           required: true,
           errorText: fieldErrors?['pan'],

@@ -63,7 +63,7 @@ Future<void> init() async {
 
   sl.registerLazySingleton<KycRepository>(() => KycRepository(sl()));
 
-  sl.registerFactory<KycCubit>(() => KycCubit(sl<KycRepository>()));
+  sl.registerLazySingleton<KycCubit>(() => KycCubit(sl<KycRepository>()));
 
   // Services
   sl.registerLazySingleton<ServiceApi>(() => ServiceApi());
@@ -77,7 +77,9 @@ Future<void> init() async {
 
   sl.registerLazySingleton<ProfileRepository>(() => ProfileRepository(sl()));
 
-  sl.registerFactory<ProfileCubit>(() => ProfileCubit(sl<ProfileRepository>()));
+  sl.registerLazySingleton<ProfileCubit>(
+    () => ProfileCubit(sl<ProfileRepository>()),
+  );
 
   // General Profile
   sl.registerFactory<GeneralProfileCubit>(
@@ -114,7 +116,7 @@ Future<void> init() async {
   sl.registerLazySingleton<CommonDetailsRepository>(
     () => CommonDetailsRepository(service: sl()),
   );
-  sl.registerFactory<CommonDetailsCubit>(
+  sl.registerLazySingleton<CommonDetailsCubit>(
     () => CommonDetailsCubit(repository: sl<CommonDetailsRepository>()),
   );
 

@@ -7,6 +7,8 @@ import 'package:hammer_app/core/colors/colors.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_background.dart';
 import 'package:hammer_app/core/utils/common/widgets/auth_button.dart';
 import 'package:hammer_app/core/utils/common/widgets/white_card.dart';
+import 'package:hammer_app/core/utils/common/widgets/dynamic_gif_widget.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 
 import 'package:hammer_app/features/kyc/presentation/screen/kyc_onboarding_screen.dart';
 import 'package:hammer_app/features/otp/presentation/widgets/otp_field_widget.dart';
@@ -45,21 +47,11 @@ class _OtpScreenState extends State<OtpScreen> {
           BlocListener<OtpCubit, OtpState>(
             listener: (context, state) {
               if (state is OtpFailure) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.error),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                AppSnackBar.show(context, state.error, isError: true);
               }
 
               if (state is OtpSuccess) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.response.message),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                AppSnackBar.show(context, state.response.message, isError: false);
 
                 Navigator.push(
                   context,
@@ -76,20 +68,10 @@ class _OtpScreenState extends State<OtpScreen> {
           BlocListener<MobileOtpCubit, MobileOtpState>(
             listener: (context, state) {
               if (state is MobileOtpFailure) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                AppSnackBar.show(context, state.message, isError: true);
               }
               if (state is MobileOtpVerified) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.response.message),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                AppSnackBar.show(context, state.response.message, isError: false);
 
                 Navigator.push(
                   context,
@@ -101,12 +83,7 @@ class _OtpScreenState extends State<OtpScreen> {
               }
 
               if (state is MobileOtpSent) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                AppSnackBar.show(context, state.message, isError: false);
               }
             },
           ),
@@ -130,9 +107,8 @@ class _OtpScreenState extends State<OtpScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Center(
-                              child: Image.asset(
-                                'assets/gif/hammer_gif.gif',
+                            const Center(
+                              child: DynamicGifWidget(
                                 width: 150,
                                 height: 150,
                                 fit: BoxFit.contain,

@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hammer_app/core/colors/colors.dart';
 import 'package:hammer_app/core/utils/common/screens/welcome_screen.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hammer_app/features/common/cubit/dynamic_content_cubit.dart';
+import 'package:hammer_app/core/utils/common/widgets/dynamic_gif_widget.dart';
 // 👆 use YOUR actual path
 
 class SplashScreen extends StatefulWidget {
@@ -38,6 +41,9 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
+    // Fetch dynamic content early
+    context.read<DynamicContentCubit>().fetchDynamicContent();
+
     Timer(const Duration(seconds: 4), () {
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -62,8 +68,7 @@ class _SplashScreenState extends State<SplashScreen>
           opacity: _fadeAnimation,
           child: ScaleTransition(
             scale: _scaleAnimation,
-            child: Image.asset(
-              'assets/gif/hammer_gif.gif',
+            child: const DynamicGifWidget(
               width: 180,
               height: 180,
               fit: BoxFit.contain,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hammer_app/features/kyc/presentation/widgets/kyc_textfield.dart';
 import 'package:hammer_app/features/kyc/presentation/widgets/uppercase_formatter.dart';
 
@@ -86,6 +87,8 @@ class KycBankStep extends StatelessWidget {
           label: "Account Number",
           keyboardType: TextInputType.number,
           obscure: !showAccountNumber,
+          enableInteractiveSelection: false,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           errorText: fieldErrors?['accountNumber'],
           suffix: IconButton(
             icon: Icon(
@@ -101,6 +104,8 @@ class KycBankStep extends StatelessWidget {
           label: "Confirm Account Number",
           keyboardType: TextInputType.number,
           obscure: !showAccountNumber,
+          enableInteractiveSelection: false,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           errorText: fieldErrors?['cnfAccountNumber'],
           suffix: Icon(
             cnfAccountNumberController.text == accountNumberController.text

@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SharedPrefsHelper {
   static const tokenKey = "auth_token";
+  static const locationPromptShownKey = "location_prompt_shown_once";
+  static const biometricEnabledKey = "biometric_enabled";
+  static const biometricPromptAskedKey = "biometric_prompt_asked_once";
 
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -55,15 +58,7 @@ class SharedPrefsHelper {
   static const kycStep3Key = "kyc_step_3";
   static const kycStep4Key = "kyc_step_4";
 
-  static Future<void> saveFcmToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('fcm_token', token);
-  }
 
-  static Future<String?> getFcmToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('fcm_token');
-  }
 
   static const cachedProfileKey = "cached_profile_response";
 
@@ -92,8 +87,38 @@ class SharedPrefsHelper {
   static Future<void> clearAllCache() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(cachedProfileKey);
-    await prefs.remove('fcm_token');
+
     // We can also just call prefs.clear() if want to wipe everything, 
     // but usually better to clear specific auth/user data.
+  }
+
+  static Future<bool> isLocationPromptShownOnce() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(locationPromptShownKey) ?? false;
+  }
+
+  static Future<void> markLocationPromptShownOnce() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(locationPromptShownKey, true);
+  }
+
+  static Future<bool> isBiometricEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(biometricEnabledKey) ?? false;
+  }
+
+  static Future<void> setBiometricEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(biometricEnabledKey, enabled);
+  }
+
+  static Future<bool> isBiometricPromptAskedOnce() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(biometricPromptAskedKey) ?? false;
+  }
+
+  static Future<void> markBiometricPromptAskedOnce() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(biometricPromptAskedKey, true);
   }
 }

@@ -24,15 +24,14 @@ class UserProfile {
   final String? name;
   final String? mobile;
   final String? email;
-
   final bool mobileVerified;
   final String accountStatus;
   final String kycStatus;
-
   final KycSteps? kycSteps;
-
   final String initialDeposit;
   final int initialDepositAmount;
+  final String? bloodGroup;
+  final Map<String, String?>? documentKycUrls;
 
   UserProfile({
     this.id,
@@ -44,9 +43,10 @@ class UserProfile {
     required this.mobileVerified,
     required this.kycStatus,
     this.kycSteps,
-
     required this.initialDeposit,
     required this.initialDepositAmount,
+    this.bloodGroup,
+    this.documentKycUrls,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -56,17 +56,18 @@ class UserProfile {
       name: json['name'],
       mobile: json['mobile'],
       email: json['email'],
-
       mobileVerified: json['mobile_verified'] == true,
       accountStatus: json['account_status'] ?? 'inactive',
       kycStatus: json['kyc_status'] ?? 'not_started',
-
       kycSteps: json['kyc_steps'] != null
           ? KycSteps.fromJson(json['kyc_steps'], json)
           : null,
-
       initialDeposit: json['initial_deposit'] ?? 'not_paid',
       initialDepositAmount: json['initial_deposit_amount'] ?? 0,
+      bloodGroup: json['blood_group'],
+      documentKycUrls: json['document_kyc_urls'] != null
+          ? Map<String, String?>.from(json['document_kyc_urls'])
+          : null,
     );
   }
 }

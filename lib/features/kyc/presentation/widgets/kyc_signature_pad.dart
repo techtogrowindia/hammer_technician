@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:hammer_app/core/colors/colors.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:signature/signature.dart';
@@ -60,9 +61,7 @@ class _KycSignaturePadState extends State<KycSignaturePad> {
       widget.onSaved(file);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
-        );
+        AppSnackBar.show(context, 'Failed: $e', isError: true);
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

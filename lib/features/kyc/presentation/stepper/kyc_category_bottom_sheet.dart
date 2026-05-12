@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hammer_app/core/colors/colors.dart';
 import 'package:hammer_app/features/kyc/presentation/stepper/kyc_stepper_models.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:hammer_app/features/service/cubit/service_cubit.dart';
 import 'package:hammer_app/features/service/cubit/service_state.dart';
 
@@ -61,9 +62,7 @@ void showKycCategoryBottomSheet({
                                   });
                                 } else {
                                   if (selectedCategories.length >= 3) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("Maximum 3 categories allowed")),
-                                    );
+                                    AppSnackBar.show(context, "Maximum 3 categories allowed", isError: true);
                                     return;
                                   }
                                   setModalStateInner(() {

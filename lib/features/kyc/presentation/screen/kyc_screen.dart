@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:flutter/material.dart';
+import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
@@ -243,7 +244,7 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
 
     context.read<ServiceCubit>().loadServices();
     fetchFullKyc();
-    if (activeStep == 3) {
+    if (activeStep >= 3) {
       _fetchServiceCertificateList();
     }
   }
@@ -703,9 +704,7 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
   }
 
   void _error(String msg) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    AppSnackBar.show(context, msg, isError: true);
   }
 
   void _handleProfessionalDocAction(String parameterName) {
@@ -931,10 +930,20 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
           onDocumentAction: _handleDocumentAction,
         );
       case 7:
+        if (serviceCertificateListResponse == null && !isLoadingCertificateList) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted &&
+                serviceCertificateListResponse == null &&
+                !isLoadingCertificateList) {
+              _fetchServiceCertificateList();
+            }
+          });
+        }
         return KycPreviewStep(
           qualification: selectedQualification,
           passedOutYear: passedOutYear,
           eduCertificateFiles: eduCertificateFiles,
+          existingEduCertificates: existingEduCertificates,
           onEditEducation: () => setState(() => activeStep = 1),
           name: nameController.text,
           dob: dobController.text,
@@ -1151,9 +1160,7 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
           _fetchServiceCertificateList();
         }
       },
-      onKycError: (msg) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(msg))),
+      onKycError: (msg) => AppSnackBar.show(context, msg, isError: true),
       onGstVerifyLoading: () => setState(() => gstVerifying = true),
       onGstVerified: (d) {
         setState(() {
@@ -1161,41 +1168,24 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
           gstVerified = true;
           _applyGstDetails(d);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("GST verified successfully"),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppSnackBar.show(context, "GST verified successfully", isError: false);
       },
       onGstVerifyError: (msg) {
         setState(() {
           gstVerifying = false;
           gstVerified = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.red),
-        );
+        AppSnackBar.show(context, msg, isError: true);
       },
       onDocumentUploaded: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Documents uploaded successfully"),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppSnackBar.show(context, "Documents uploaded successfully", isError: false);
         setState(() {
           stepCompleted[6] = true;
           activeStep = 7;
         });
       },
       onProfessionalDocumentsUploaded: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Certificate documents uploaded successfully"),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppSnackBar.show(context, "Certificate documents uploaded successfully", isError: false);
         if (widget.isEditMode) {
           Navigator.pop(context);
           return;
@@ -1210,12 +1200,7 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
           setState(() {
             signatureFile = file;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Signature saved successfully"),
-              backgroundColor: Colors.green,
-            ),
-          );
+          AppSnackBar.show(context, "Signature saved successfully", isError: false);
         }
       },
       onKycOtpSent: (verificationToken) {
@@ -1425,12 +1410,7 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
             }
           }
           // Only advance on success
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Certificates uploaded successfully"),
-              backgroundColor: Colors.green,
-            ),
-          );
+          AppSnackBar.show(context, "Certificates uploaded successfully", isError: false);
           if (widget.isEditMode) {
             Navigator.pop(context);
             return;
