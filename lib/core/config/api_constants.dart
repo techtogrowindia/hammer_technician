@@ -46,6 +46,7 @@ class ApiConstants {
 
   static String get service => '$baseUrl/api/general/services';
   static String get dynamicContent => '$baseUrl/api/general/dynamic_content';
+  static String get positiveMessage => '$baseUrl/api/general/positive_message';
   static String get gst => '$baseUrl/api/technician/kyc/verify-gst';
   static String get profile => '$baseUrl/api/technician/profile';
   static String get logout => '$baseUrl/api/technician/logout';
@@ -65,5 +66,9 @@ class ApiConstants {
   static String get technicianKycStatus => '$baseUrl/api/technician/kyc_status';
   static String get createOrder => '$baseUrl/api/payment/razorpay-order-create';
   static String get generalProfile => '$baseUrl/api/technician/general_profile';
+  static String get deleteAccount => '$baseUrl/api/general/account';
+  
+  // NOTE: This must match the backend's company_api_bearer_token setting.
+  // Configure this in Company -> Settings -> Company API bearer token.
+  static const String companyApiBearerToken = 'YOUR_COMPANY_API_BEARER_TOKEN';
 }
-

@@ -32,6 +32,7 @@ class UserProfile {
   final int initialDepositAmount;
   final String? bloodGroup;
   final Map<String, String?>? documentKycUrls;
+  final List<int> technicianServiceIds; // 👈 ADD THIS
 
   UserProfile({
     this.id,
@@ -47,6 +48,7 @@ class UserProfile {
     required this.initialDepositAmount,
     this.bloodGroup,
     this.documentKycUrls,
+    this.technicianServiceIds = const [], // 👈 ADD THIS
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -68,7 +70,20 @@ class UserProfile {
       documentKycUrls: json['document_kyc_urls'] != null
           ? Map<String, String?>.from(json['document_kyc_urls'])
           : null,
+      technicianServiceIds: _extractServiceIds(json), // 👈 ADD THIS
     );
+  }
+
+  static List<int> _extractServiceIds(Map<String, dynamic> json) {
+    try {
+      final servicesList = json['kyc_steps']?['technician_services'] ?? json['technician_services'];
+      if (servicesList is List) {
+        return servicesList.map((e) {
+          return int.tryParse((e['service_id'] ?? e['id']).toString()) ?? 0;
+        }).where((id) => id > 0).toList();
+      }
+    } catch (_) {}
+    return [];
   }
 }
 

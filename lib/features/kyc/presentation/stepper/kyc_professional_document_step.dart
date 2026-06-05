@@ -23,9 +23,9 @@ class KycProfessionalDocumentStep extends StatefulWidget {
   final Map<int, bool> showOptionalCertsMap;
   final void Function(int serviceId, bool value) onShowOptionalChanged;
 
-  /// NEW: Currently selected mandatory certificate key per service ("serviceId" -> "certificateId")
-  final Map<int, int?> selectedMandatoryCerts;
-  final void Function(int serviceId, int? certificateId) onMandatorySelected;
+  /// NEW: Currently selected mandatory certificate keys per service ("serviceId" -> list of "certificateId")
+  final Map<int, List<int>> selectedMandatoryCerts;
+  final void Function(int serviceId, List<int> certificateIds) onMandatorySelected;
 
   const KycProfessionalDocumentStep({
     super.key,
@@ -80,7 +80,7 @@ class _KycProfessionalDocumentStepState
 
   Widget _buildServiceSection(ServiceWithCertificates svc) {
     final mandatoryCerts = svc.mandatoryCertificates;
-    final selectedId = widget.selectedMandatoryCerts[svc.serviceId];
+    final selectedIds = widget.selectedMandatoryCerts[svc.serviceId] ?? [];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -166,59 +166,52 @@ class _KycProfessionalDocumentStepState
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    value: selectedId,
-                    hint: const Text(
-                      "Choose a certificate",
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
+                  InkWell(
+                    onTap: () {
+                      _showMultiSelectDialog(context, svc.serviceId, mandatoryCerts);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        border: Border.all(color: Colors.grey.shade400),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                    ),
-                    items: mandatoryCerts.map((c) {
-                      return DropdownMenuItem<int>(
-                        value: c.certificateId,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                c.certificateName,
-                                style: const TextStyle(fontSize: 14),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              selectedIds.isEmpty
+                                  ? "Choose certificates"
+                                  : "${selectedIds.length} certificate(s) selected",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: selectedIds.isEmpty ? Colors.black54 : Colors.black87,
                               ),
                             ),
-                            if (c.uploaded)
-                              const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                                size: 16,
-                              ),
-                          ],
+                          ),
+                          const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  if (selectedIds.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ...selectedIds.map((id) {
+                      final cert = mandatoryCerts.firstWhere(
+                        (c) => c.certificateId == id,
+                        orElse: () => mandatoryCerts.first,
+                      );
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildUploadFields(
+                          svc.serviceId,
+                          cert,
+                          isAdditional: false,
                         ),
                       );
                     }).toList(),
-                    onChanged: (val) =>
-                        widget.onMandatorySelected(svc.serviceId, val),
-                  ),
-
-                  if (selectedId != null) ...[
-                    const SizedBox(height: 10),
-                    _buildUploadFields(
-                      svc.serviceId,
-                      mandatoryCerts.firstWhere(
-                        (c) => c.certificateId == selectedId,
-                        orElse: () => mandatoryCerts.first,
-                      ),
-                      isAdditional: false,
-                    ),
                   ],
                 ],
 
@@ -270,11 +263,11 @@ class _KycProfessionalDocumentStepState
                       CertificateItem? targetCert;
 
                       if (allCerts.isNotEmpty) {
-                        // Try to find an optional certificate that isn't the one already selected as mandatory
+                        // Try to find an optional certificate that isn't already selected as mandatory
                         final optionalCerts = allCerts
                             .where(
                               (c) =>
-                                  !c.isMandatory && c.certificateId != selectedId,
+                                  !c.isMandatory && !selectedIds.contains(c.certificateId),
                             )
                             .toList();
 
@@ -290,9 +283,9 @@ class _KycProfessionalDocumentStepState
                             orElse: () => optionalCerts.first,
                           );
                         } else {
-                          // Fallback: Use any cert that isn't the selected one, or just the first one
+                          // Fallback: Use any cert that isn't selected, or just the first one
                           targetCert = allCerts.firstWhere(
-                            (c) => c.certificateId != selectedId,
+                            (c) => !selectedIds.contains(c.certificateId),
                             orElse: () => allCerts.first,
                           );
                         }
@@ -368,12 +361,14 @@ class _KycProfessionalDocumentStepState
               child: Row(
                 mainAxisSize: MainAxisSize.max,
                 children: [
-                  const Text(
-                    "Upload Certificate ",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: Colors.grey,
+                  Expanded(
+                    child: Text(
+                      "Upload ${cert.certificateName}",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.grey,
+                      ),
                     ),
                   ),
                   Container(
@@ -627,5 +622,54 @@ class _KycProfessionalDocumentStepState
           "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
       setState(() {});
     }
+  }
+
+  void _showMultiSelectDialog(BuildContext context, int serviceId, List<CertificateItem> certs) {
+    final selected = List<int>.from(widget.selectedMandatoryCerts[serviceId] ?? []);
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Select Certificates", style: TextStyle(fontSize: 16)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: certs.map((c) {
+                    return CheckboxListTile(
+                      title: Text(c.certificateName, style: const TextStyle(fontSize: 14)),
+                      value: selected.contains(c.certificateId),
+                      onChanged: (val) {
+                        setStateDialog(() {
+                          if (val == true) {
+                            selected.add(c.certificateId);
+                          } else {
+                            selected.remove(c.certificateId);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Cancel"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    widget.onMandatorySelected(serviceId, selected);
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text("OK"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }

@@ -51,14 +51,15 @@ class _OtpScreenState extends State<OtpScreen> {
               }
 
               if (state is OtpSuccess) {
-                AppSnackBar.show(context, state.response.message, isError: false);
+                AppSnackBar.show(
+                  context,
+                  state.response.message,
+                  isError: false,
+                );
 
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => KycOnboardingScreen(
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => KycOnboardingScreen()),
                 );
               }
             },
@@ -71,14 +72,15 @@ class _OtpScreenState extends State<OtpScreen> {
                 AppSnackBar.show(context, state.message, isError: true);
               }
               if (state is MobileOtpVerified) {
-                AppSnackBar.show(context, state.response.message, isError: false);
+                AppSnackBar.show(
+                  context,
+                  state.response.message,
+                  isError: false,
+                );
 
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => KycOnboardingScreen(
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => KycOnboardingScreen()),
                 );
               }
 
@@ -107,10 +109,10 @@ class _OtpScreenState extends State<OtpScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Center(
+                            Center(
                               child: DynamicGifWidget(
-                                width: 150,
-                                height: 150,
+                                width: MediaQuery.of(context).size.width * 0.6,
+                                height: MediaQuery.of(context).size.width * 0.6,
                                 fit: BoxFit.contain,
                               ),
                             ),

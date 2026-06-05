@@ -47,7 +47,11 @@ class _KycVerificationOtpScreenState extends State<KycVerificationOtpScreen> {
           AppSnackBar.show(context, state.message, isError: true);
         }
         if (state is KycOtpVerified) {
-          AppSnackBar.show(context, "KYC verified successfully", isError: false);
+          AppSnackBar.show(
+            context,
+            "KYC verified successfully",
+            isError: false,
+          );
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const KycOnboardingScreen()),
@@ -71,10 +75,10 @@ class _KycVerificationOtpScreenState extends State<KycVerificationOtpScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Center(
+                         Center(
                           child: DynamicGifWidget(
-                            width: 150,
-                            height: 150,
+                            width: MediaQuery.of(context).size.width * 0.6,
+                            height: MediaQuery.of(context).size.width * 0.6,
                             fit: BoxFit.contain,
                           ),
                         ),

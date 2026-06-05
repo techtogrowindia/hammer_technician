@@ -17,6 +17,8 @@ import 'package:hammer_app/features/logout/logout_service.dart';
 import 'package:hammer_app/features/profile/cubit/profile_cubit.dart';
 import 'package:hammer_app/features/profile/cubit/profile_state.dart';
 import 'package:hammer_app/features/profile/data/models/profile_response_model.dart';
+import 'package:hammer_app/features/service/cubit/service_cubit.dart'; // 👈 ADD THIS
+import 'package:hammer_app/features/service/cubit/service_state.dart'; // 👈 ADD THIS
 
 class KycOnboardingScreen extends StatefulWidget {
   const KycOnboardingScreen({super.key});
@@ -36,6 +38,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
       ),
     );
     context.read<FetchKeyCubit>().fetchKey();
+    context.read<ServiceCubit>().loadServices(); // 👈 ADD THIS
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProfileCubit>().loadProfile();
     });
@@ -664,13 +667,50 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
             profile.initialDeposit == 'paid' ||
             profile.kycStatus.toLowerCase() == 'verified' ||
             profile.kycStatus.toLowerCase() == 'approved';
-        final amount = isPaid
-            ? (profile.initialDepositAmount)
-            : (loadedState.amount);
 
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
+        return BlocBuilder<ServiceCubit, ServiceState>(
+          builder: (context, serviceState) {
+            int calculatedAmount = loadedState.amount;
+
+            if (serviceState is ServiceLoaded && profile.technicianServiceIds.isNotEmpty) {
+              int maxActivationCharge = 0;
+              int validServiceCount = 0;
+
+              debugPrint('--- Payment Calculation Started ---');
+              debugPrint('Selected Service IDs: ${profile.technicianServiceIds}');
+              debugPrint('Base Onboarding Charge (loadedState.amount): ₹${loadedState.amount}');
+
+              for (final cat in serviceState.categories) {
+                for (final sub in cat.subcategories) {
+                  for (final svc in sub.services) {
+                    if (profile.technicianServiceIds.contains(svc.id)) {
+                      debugPrint('Found Selected Service: ${svc.serviceName} (ID: ${svc.id})');
+                      debugPrint('  -> Activation Charge: ₹${svc.technicianActivationCharges}');
+                      validServiceCount++;
+                      if (svc.technicianActivationCharges > maxActivationCharge) {
+                        maxActivationCharge = svc.technicianActivationCharges;
+                      }
+                    }
+                  }
+                }
+              }
+
+              if (validServiceCount > 0) {
+                calculatedAmount = maxActivationCharge + ((validServiceCount - 1) * loadedState.amount);
+                debugPrint('Highest Activation Charge: ₹$maxActivationCharge');
+                debugPrint('Remaining Services: ${validServiceCount - 1}');
+                debugPrint('Calculation: $maxActivationCharge + (${validServiceCount - 1} * ${loadedState.amount}) = ₹$calculatedAmount');
+              } else {
+                debugPrint('No matching services found for calculation. Using default amount: ₹$calculatedAmount');
+              }
+              debugPrint('--- Payment Calculation Ended ---');
+            }
+
+            final amount = isPaid ? profile.initialDepositAmount : calculatedAmount;
+
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: isPaid
                   ? [const Color(0xFF22C55E), const Color(0xFF16A34A)]
@@ -747,7 +787,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
                     onPressed: () => _openPaymentDialog(
                       context,
                       razorKey: loadedState.razorpayKey,
-                      amount: loadedState.amount,
+                      amount: amount,
                       profile: profile,
                     ),
                     style: ElevatedButton.styleFrom(
@@ -769,6 +809,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
             ],
           ),
         );
+      });
       },
     );
   }

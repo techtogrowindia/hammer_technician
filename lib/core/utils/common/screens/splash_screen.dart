@@ -1,11 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hammer_app/core/colors/colors.dart';
 import 'package:hammer_app/core/utils/common/screens/welcome_screen.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hammer_app/features/common/cubit/dynamic_content_cubit.dart';
-import 'package:hammer_app/core/utils/common/widgets/dynamic_gif_widget.dart';
-// 👆 use YOUR actual path
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,6 +14,8 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+
+  bool _navigated = false;
 
   @override
   void initState() {
@@ -40,12 +37,16 @@ class _SplashScreenState extends State<SplashScreen>
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     _controller.forward();
+  }
 
-    // Fetch dynamic content early
-    context.read<DynamicContentCubit>().fetchDynamicContent();
+  void _navigateToWelcome() {
+    if (_navigated || !mounted) return;
 
-    Timer(const Duration(seconds: 4), () {
+    _navigated = true;
+
+    Future.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const WelcomePage()),
@@ -68,10 +69,40 @@ class _SplashScreenState extends State<SplashScreen>
           opacity: _fadeAnimation,
           child: ScaleTransition(
             scale: _scaleAnimation,
-            child: const DynamicGifWidget(
-              width: 180,
-              height: 180,
+            child: Image.network(
+              'https://hammerapp.in/images/otp.gif',
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: MediaQuery.of(context).size.width * 0.8,
               fit: BoxFit.contain,
+
+              // Called when image is loaded
+              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                if (frame != null || wasSynchronouslyLoaded) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _navigateToWelcome();
+                  });
+                }
+
+                return child;
+              },
+
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) {
+                  return child;
+                }
+
+                return const CircularProgressIndicator(color: Colors.white);
+              },
+
+              errorBuilder: (context, error, stackTrace) {
+                debugPrint('GIF Error: $error');
+
+                return const Icon(
+                  Icons.broken_image,
+                  color: Colors.white,
+                  size: 80,
+                );
+              },
             ),
           ),
         ),

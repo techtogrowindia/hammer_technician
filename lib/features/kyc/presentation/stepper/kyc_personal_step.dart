@@ -140,74 +140,9 @@ class KycPersonalStep extends StatelessWidget {
           label: "PAN Number",
           maxLength: 10,
           inputFormatters: [UpperCaseTextFormatter()],
-          suffix: panLinkLoading
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              : isPanLinked == true
-                  ? const SizedBox.shrink()
-                  : ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: panController,
-                      builder: (context, value, _) {
-                        if (value.text.isEmpty) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ElevatedButton(
-                            onPressed: onCheckPanAadharLink,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isPanLinked == false
-                                  ? Colors.red.shade100
-                                  : AppColors.primaryBlue,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isPanLinked == false
-                                      ? Icons.warning_amber_rounded
-                                      : Icons.verified_user,
-                                  size: 18,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  "Verify",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
           required: true,
           errorText: fieldErrors?['pan'],
         ),
-        if (isPanLinked != null) ...[
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Text(
-              isPanLinked == true
-                  ? "Aadhar & PAN are linked"
-                  : "Aadhar & PAN are not linked",
-              style: TextStyle(
-                color: isPanLinked == true ? Colors.green : Colors.red,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
         _fieldSpace,
         KycTextField(
           controller: addressController,

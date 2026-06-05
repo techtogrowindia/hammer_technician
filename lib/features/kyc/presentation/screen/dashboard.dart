@@ -8,6 +8,7 @@ import 'package:hammer_app/features/common/cubit/dynamic_content_state.dart';
 import 'package:hammer_app/features/login/presentation/screens/login_screen.dart';
 import 'package:hammer_app/features/logout/exit_dialog.dart';
 import 'package:hammer_app/features/logout/logout_service.dart';
+import 'package:hammer_app/features/logout/delete_account_service.dart';
 import 'package:hammer_app/features/profile/cubit/profile_cubit.dart';
 import 'package:hammer_app/features/profile/cubit/profile_state.dart';
 import 'package:hammer_app/features/profile/cubit/general_profile_cubit.dart';
@@ -19,7 +20,6 @@ import 'package:hammer_app/features/profile/presentation/general_profile_edit_sh
 import 'package:hammer_app/features/service/presenation/service_screen.dart';
 import 'package:hammer_app/core/utils/shared_prefs_helper.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:hammer_app/core/utils/snackbar_utils.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -52,22 +52,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     context.read<ProfileCubit>().loadProfile();
     context.read<GeneralProfileCubit>().loadGeneralProfile();
     context.read<DynamicContentCubit>().fetchDynamicContent();
-  }
-
-  double _calculateProgress(GeneralProfile? gp) {
-    if (gp == null) return 0.0;
-    int filled = 0;
-    if (gp.genderInfo?.genderIdentity != null) filled++;
-    if (gp.maritalInfo?.isMarried != null) filled++;
-    if (gp.spouseEmergency?.emergencyContactNoSos != null) filled++;
-    if (gp.govtWelfareCard?.haveWelfareCard != null) filled++;
-    if (gp.bonusPoints?.festivalSelection?.isNotEmpty ?? false) filled++;
-    if (gp.utilityTshirt?.tshirtSize != null) filled++;
-    if (gp.policeVerification?.provisionStatus == 'provided') filled++;
-    if (gp.employeeNumber?.employeeId != null) filled++;
-    if (gp.insuranceDetails?.insuranceProvider != null) filled++;
-    if (gp.earningScreen?.paymentMethod != null) filled++;
-    return (filled / 10).clamp(0.0, 1.0);
   }
 
   @override
@@ -120,7 +104,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final gp = gpState is GeneralProfileLoaded
                   ? gpState.profile
                   : null;
-              final progress = _calculateProgress(gp);
 
               return RefreshIndicator(
                 onRefresh: _loadData,
@@ -130,7 +113,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildTopHeader(context, sw, mq.padding.top),
+                      _buildTopHeader(context, sw, mq.padding.top, profile),
 
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: sw * 0.07),
@@ -156,7 +139,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildTopHeader(BuildContext context, double sw, double topPadding) {
+  Widget _buildTopHeader(
+    BuildContext context,
+    double sw,
+    double topPadding,
+    UserProfile? profile,
+  ) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(sw * 0.05, topPadding + 10, sw * 0.05, 15),
@@ -190,17 +178,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const Spacer(),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfilePage()),
+              );
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.primaryBlue.withOpacity(0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: sw * 0.06,
+                backgroundColor: Colors.white,
+                backgroundImage:
+                    (profile?.documentKycUrls?['photo'] != null &&
+                        _token != null)
+                    ? NetworkImage(
+                        profile!.documentKycUrls!['photo']!,
+                        headers: {'Authorization': 'Bearer $_token'},
+                      )
+                    : null,
+                child:
+                    (profile?.documentKycUrls?['photo'] == null ||
+                        _token == null)
+                    ? Icon(
+                        Icons.person_rounded,
+                        size: sw * 0.045,
+                        color: AppColors.primaryBlue,
+                      )
+                    : null,
+              ),
+            ),
+          ),
         ],
       ),
     );
-
   }
 
   Widget _buildDynamicNote(double sw) {
     return BlocBuilder<DynamicContentCubit, DynamicContentState>(
       builder: (context, state) {
         String message =
-            "Welcome to Hammer Family 👋\nWe are launching soon in your town.";
+            "வரவேற்பதில் பெருமிதம் கொள்கிறோம்! 🎉\n\nநமது ஹேமர் (Hammer) நிறுவனத்துடன் இணைந்துள்ள புதிய சேவை வழங்குநரை ஹேமர் குழுமம் மற்றும் அதன் நிறுவனர்கள் சார்பாக அன்போடு, நெஞ்சார வரவேற்கிறோம்! 🤝\n\nவாடிக்கையாளர்களுக்குத் தரமான, நம்பிக்கையான சேவைகளை \"ஒரே டச்சில்\" (One Tap) கொண்டு சேர்க்கும் நமது லட்சியப் பயணத்தில், உங்கள் பங்களிப்பு மிக முக்கியமானது.\n\nஉங்கள் வளர்ச்சிக்கும், வெற்றிக்கும் ஹேமர் குழுமம் என்றும் உறுதுணையாக இருக்கும்.\n\nஇணைந்து வளர்வோம்... வெற்றியைப் பகிர்வோம்! 🚀";
         if (state is DynamicContentLoaded) {
           message = state.model.data?.positiveMessage ?? message;
         }
@@ -295,6 +320,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? (state.profile.name ?? 'User')
         : 'Loading...';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    final profile = state is ProfileLoaded ? state.profile : null;
 
     return Drawer(
       backgroundColor: Colors.white,
@@ -316,14 +342,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 CircleAvatar(
                   radius: 30,
                   backgroundColor: Colors.white,
-                  child: Text(
-                    initial,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryAmber,
-                    ),
-                  ),
+                  backgroundImage:
+                      (profile?.documentKycUrls?['photo'] != null &&
+                          _token != null)
+                      ? NetworkImage(
+                          profile!.documentKycUrls!['photo']!,
+                          headers: {'Authorization': 'Bearer $_token'},
+                        )
+                      : null,
+                  child:
+                      (profile?.documentKycUrls?['photo'] == null ||
+                          _token == null)
+                      ? Text(
+                          initial,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryAmber,
+                          ),
+                        )
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -384,6 +422,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               }
             }
+          }, color: Colors.black87),
+          _drawerItem(Icons.delete_forever_rounded, "Delete Account", () async {
+            final shouldDelete = await ExitConfirmation.show(
+              context,
+              title: 'Delete Account?',
+              message:
+                  'This will permanently delete your account and all related data. This action cannot be undone.',
+              confirmText: 'Delete',
+            );
+            if (shouldDelete) {
+              final techId = profile?.id;
+              if (techId != null) {
+                // Show loading indicator
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) =>
+                      const Center(child: CircularProgressIndicator()),
+                );
+
+                final success =
+                    await DeleteAccountService.deleteTechnicianAccount(techId);
+
+                // Remove loading indicator
+                Navigator.pop(context);
+
+                if (success) {
+                  AppSnackBar.show(context, "Account deleted successfully.");
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                } else {
+                  AppSnackBar.show(
+                    context,
+                    "Failed to delete account. Please try again or contact support.",
+                    isError: true,
+                  );
+                }
+              } else {
+                AppSnackBar.show(
+                  context,
+                  "Profile data not found. Please wait until it loads.",
+                  isError: true,
+                );
+              }
+            }
           }, color: Colors.redAccent),
         ],
       ),
@@ -424,7 +510,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!canCheck && !supported) {
       if (!mounted) return;
       if (!mounted) return;
-      AppSnackBar.show(context, "Biometric authentication is not available on this device.", isError: true);
+      AppSnackBar.show(
+        context,
+        "Biometric authentication is not available on this device.",
+        isError: true,
+      );
       return;
     }
 
@@ -457,426 +547,384 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildIDCard(double sw, UserProfile? profile, GeneralProfile? gp) {
-    return Column(
-      children: [
-        // FRONT SIDE
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Blue Header Section
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.only(top: 10, bottom: 25),
-                decoration: const BoxDecoration(
-                  color: AppColors.primaryBlue,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(15),
-                    topRight: Radius.circular(15),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardW = constraints.maxWidth;
+        final circleD = cardW * 1.6;
+
+        return Column(
+          children: [
+            // FRONT
+            Container(
+              height: 520,
+              width: cardW,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                child: Column(
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Stack(
                   children: [
-                    // Lanyard Slot
-                    Container(
-                      width: 50,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(6),
+                    // Top curve
+                    Positioned(
+                      top: 150 - circleD, // Bottom edge at 150
+                      left: -(circleD - cardW) / 2,
+                      child: Container(
+                        width: circleD,
+                        height: circleD,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryAmber,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.primaryBlue,
+                            width: 6,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 15),
-                    // Logo and Brand
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
+                    // Header Logo & Text
+                    Positioned(
+                      top: 25,
+                      left: 15,
+                      right: 15,
+                      child: Row(
+                        children: [
+                          // Logo
+                          Container(
+                            width: 65,
+                            height: 65,
+                            decoration: const BoxDecoration(
+                              color: Colors.amber,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Image.asset(
+                                'assets/images/hammer.png',
+                                fit: BoxFit.contain,
+                                errorBuilder: (c, e, s) => const Icon(
+                                  Icons.home_repair_service_rounded,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          // Texts
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "HAMMER",
+                                  style: TextStyle(
+                                    fontSize: cardW * 0.08,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.primaryBlue,
+                                    letterSpacing: 1.0,
+                                    height: 1.0,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "HOME FIX SOLUTION PRIVATE LIMITED",
+                                  style: TextStyle(
+                                    fontSize: cardW * 0.025,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "All services in one Tap 👆",
+                                  style: TextStyle(
+                                    fontSize: cardW * 0.03,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Profile Photo
+                    Positioned(
+                      top: 90,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          width: 140,
+                          height: 160,
                           decoration: BoxDecoration(
-                            // color: Colors.black,
-                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: AppColors.primaryBlue,
+                              width: 4,
+                            ),
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: Image.asset(
-                              'assets/images/hammer.png',
-                              // height: 80,
-                              width: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
-                                    Icons.home_repair_service_rounded,
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Hammer",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                              ),
-                            ),
-                            Text(
-                              "Home Fix",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Body Section (White background)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Avatar Placeholder
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!, width: 2),
-                      ),
-                      child: Container(
-                        width: 90,
-                        height: 110,
-                        color: Colors.grey[100],
-                        child: profile?.documentKycUrls?['photo'] != null
-                            ? Image.network(
-                                profile!.documentKycUrls!['photo']!,
-                                headers: _token != null
-                                    ? {'Authorization': 'Bearer $_token'}
-                                    : null,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(
-                                      Icons.person_rounded,
-                                      size: 60,
+                            borderRadius: BorderRadius.circular(21),
+                            child: profile?.documentKycUrls?['photo'] != null
+                                ? Image.network(
+                                    profile!.documentKycUrls!['photo']!,
+                                    headers: _token != null
+                                        ? {'Authorization': 'Bearer $_token'}
+                                        : null,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, e, s) => const Icon(
+                                      Icons.person,
+                                      size: 80,
                                       color: Colors.grey,
                                     ),
-                              )
-                            : const Icon(
-                                Icons.person_rounded,
-                                size: 60,
-                                color: Colors.grey,
-                              ),
+                                  )
+                                : const Icon(
+                                    Icons.person,
+                                    size: 80,
+                                    color: Colors.grey,
+                                  ),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 15),
-                    // Label
-                    Expanded(
+                    // Details
+                    Positioned(
+                      top: 280,
+                      left: cardW * 0.08,
+                      right: cardW * 0.08,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 15,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryBlue,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              "Technician",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
+                          _infoRow("NAME", profile?.name ?? '---'),
+                          const SizedBox(height: 18),
+                          _infoRow("ROLE", "Technician"),
+                          const SizedBox(height: 18),
+                          _infoRow("ID", profile?.uniqueId ?? '---'),
+                          const SizedBox(height: 18),
+                          _infoRow("🩸 GROUP", profile?.bloodGroup ?? '---'),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-
-              // Name and ID details
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _idTextLine("Name: ${profile?.name ?? '---'}"),
-                          _idTextLine(
-                            "Technician ID: ${profile?.uniqueId ?? '---'}",
-                          ),
-                          _idTextLine("Role: Service Partner"),
-                        ],
-                      ),
-                    ),
-                    // Verification QR
-                    Column(
-                      children: [
-                        const Text(
-                          "Verification",
+                    // QR Code Box
+                    Positioned(
+                      bottom: 25,
+                      right: 25,
+                      child: Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black54, width: 1.5),
+                          color: Colors.white,
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          "QR",
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
+                            color: Colors.black87,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black, width: 1),
-                          ),
-                          child: const Icon(
-                            Icons.qr_code_2_rounded,
-                            size: 45,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ],
+                      ),
+                    ),
+                    // Bottom Strip
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        height: 12,
+                        color: AppColors.primaryAmber,
+                      ),
                     ),
                   ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 15),
+            const SizedBox(height: 30),
 
-              // Blue Footer
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(15),
-                decoration: const BoxDecoration(
-                  color: AppColors.primaryBlue,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(15),
-                    bottomRight: Radius.circular(15),
+            // BACK
+            Container(
+              height: 520,
+              width: cardW,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Stack(
                   children: [
-                    Text(
-                      "Blood Group: ${profile?.bloodGroup ?? '---'}",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
+                    // Text Content
+                    Positioned(
+                      top: 50,
+                      left: 20,
+                      right: 20,
+                      child: Column(
+                        children: [
+                          const Text(
+                            "Company Address:",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "No. 75/53, Sabanayagar street,\nChidambaram - 608001.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 25),
+                          const Text(
+                            "B.O: 865, Cuddalore bypass Road,\nVandigate, Chidambaram.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 35),
+                          const Text(
+                            "Business Support",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "Businesssupport@hammerapp.in",
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "🌐 Hammerapp.in",
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(
+                                Icons.message_rounded,
+                                color: Colors.green,
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                "9788990040",
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Emergency: ${gp?.spouseEmergency?.emergencyContactNoSos ?? '---'}",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
+                    // Bottom SOS Curve
+                    Positioned(
+                      top: 380,
+                      left: -(circleD - cardW) / 2,
+                      child: Container(
+                        width: circleD,
+                        height: circleD,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryAmber,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.primaryBlue,
+                            width: 6,
+                          ),
+                        ),
+                        alignment: Alignment.topCenter,
+                        padding: const EdgeInsets.only(top: 25),
+                        child: const Text(
+                          "SOS",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            color: Colors.black87,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 90,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+              color: Colors.black87,
+            ),
           ),
         ),
-
-        const SizedBox(height: 30),
-
-        // BACK SIDE
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+        const Text(
+          ":   ",
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
+            color: Colors.black87,
           ),
-          child: Column(
-            children: [
-              // Amber Header
-              Container(
-                width: double.infinity,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: AppColors.primaryAmber,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(15),
-                    topRight: Radius.circular(15),
-                  ),
-                ),
-                child: Center(
-                  child: Container(
-                    width: 50,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Back Content
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 25,
-                ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.home_repair_service_rounded,
-                      color: Colors.black,
-                      size: 50,
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      "Hammer Home\nFix Solution",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 25),
-                    const Text(
-                      "No 75/53, Sabanayagar Street,\nChidambaram - 608001",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, color: Colors.black87),
-                    ),
-                    const SizedBox(height: 25),
-                    _supportRow("Support: support@hammerapp.in"),
-                    _supportRow("WhatsApp: 9788990040"),
-                    const SizedBox(height: 30),
-                    const Text(
-                      "This card is property of Hammer Home Fix.\nIf found, please return to the above address.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Amber Footer
-              Container(
-                width: double.infinity,
-                height: 25,
-                decoration: const BoxDecoration(
-                  color: AppColors.primaryAmber,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(15),
-                    bottomRight: Radius.circular(15),
-                  ),
-                ),
-              ),
-            ],
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Colors.black87,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
-    );
-  }
-
-  Widget _idTextLine(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
-          color: Colors.black,
-        ),
-      ),
-    );
-  }
-
-  Widget _supportRow(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        text,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-      ),
-    );
-  }
-
-  Widget _idRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10)),
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: AppColors.primaryBlue,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _idFooterRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
-        children: [
-          Text(
-            "$label: ",
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

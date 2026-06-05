@@ -159,7 +159,7 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
   Map<String, TextEditingController> certExpiryControllers = {};
   Map<String, bool> noExpiryMap = {};
   Map<int, bool> showOptionalCertsMap = {};
-  Map<int, int?> selectedMandatoryCerts = {};
+  Map<int, List<int>> selectedMandatoryCerts = {};
 
   @override
   void initState() {
@@ -852,9 +852,9 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
             showOptionalCertsMap[svcId] = v;
           }),
           selectedMandatoryCerts: selectedMandatoryCerts,
-          onMandatorySelected: (svcId, certId) async {
+          onMandatorySelected: (svcId, certIds) async {
             setState(() {
-              selectedMandatoryCerts[svcId] = certId;
+              selectedMandatoryCerts[svcId] = certIds;
             });
 
             // Logic to handle "Letter from Registered Vendor"
@@ -862,23 +862,25 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
                 .where((s) => s.serviceId == svcId)
                 .firstOrNull;
             if (svc != null) {
-              final cert = svc.certificates
-                  .where((c) => c.certificateId == certId)
-                  .firstOrNull;
-              if (cert?.certificateName == "Letter from Registered Vendor") {
-                final key = '${svcId}_$certId';
-                // If no file already added, auto-load the placeholder as a File
-                if ((professionalFilesMap[key] ?? []).isEmpty) {
-                  final file = await _loadAssetAsFile('assets/images/no_image.png');
-                  if (file != null) {
-                    setState(() {
-                      professionalFilesMap[key] = [file];
-                      noExpiryMap[key] = true; // Auto-set no expiry
-                    });
+              for (final certId in certIds) {
+                final cert = svc.certificates
+                    .where((c) => c.certificateId == certId)
+                    .firstOrNull;
+                if (cert?.certificateName == "Letter from Registered Vendor") {
+                  final key = '${svcId}_$certId';
+                  // If no file already added, auto-load the placeholder as a File
+                  if ((professionalFilesMap[key] ?? []).isEmpty) {
+                    final file = await _loadAssetAsFile('assets/images/no_image.png');
+                    if (file != null && mounted) {
+                      setState(() {
+                        professionalFilesMap[key] = [file];
+                        noExpiryMap[key] = true; // Auto-set no expiry
+                      });
+                    }
+                  } else {
+                    // Even if files were there, ensure no expiry is checked
+                    if (mounted) setState(() => noExpiryMap[key] = true);
                   }
-                } else {
-                  // Even if files were there, ensure no expiry is checked
-                  setState(() => noExpiryMap[key] = true);
                 }
               }
             }
@@ -1350,13 +1352,13 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
             bool met = false;
 
             // NEW: Also check if the currently selected mandatory cert is the 'Vendor Letter' which needs no upload
-            final selectedId = selectedMandatoryCerts[svc.serviceId];
+            final selectedIds = selectedMandatoryCerts[svc.serviceId] ?? [];
             final vendorLetterCertId = svc.mandatoryCertificates
                 .where((c) => c.certificateName == "Letter from Registered Vendor")
                 .firstOrNull
                 ?.certificateId;
 
-            if (selectedId != null && selectedId == vendorLetterCertId) {
+            if (vendorLetterCertId != null && selectedIds.contains(vendorLetterCertId)) {
               met = true;
             } else {
               for (final cert in svc.mandatoryCertificates) {
@@ -1550,7 +1552,7 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
                   .toList();
               if (mandatories.isNotEmpty) {
                 selectedMandatoryCerts[svc.serviceId] =
-                    mandatories.first.certificateId;
+                    [mandatories.first.certificateId];
               }
             }
 
@@ -1565,8 +1567,8 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
             }
 
             // AUTO-UPLOAD logic for "Vendor Letter" on initial fetch
-            final selectedId = selectedMandatoryCerts[svc.serviceId];
-            if (selectedId != null) {
+            final selectedIds = selectedMandatoryCerts[svc.serviceId] ?? [];
+            for (final selectedId in selectedIds) {
               final cert = svc.certificates
                   .where((c) => c.certificateId == selectedId)
                   .firstOrNull;

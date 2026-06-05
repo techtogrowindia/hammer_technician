@@ -37,10 +37,10 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Center(
+                  Center(
                     child: DynamicGifWidget(
-                      width: 150,
-                      height: 150,
+                      width: MediaQuery.of(context).size.width * 0.6,
+                      height: MediaQuery.of(context).size.width * 0.6,
                       fit: BoxFit.contain,
                     ),
                   ),

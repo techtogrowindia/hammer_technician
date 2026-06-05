@@ -5,6 +5,7 @@ class ServiceModel {
   final String serviceName;
   final String image;
   final int taxPercentage;
+  final int technicianActivationCharges;
   final List<CertificateModel> certificates; // 👈 ADD THIS
 
   ServiceModel({
@@ -12,6 +13,7 @@ class ServiceModel {
     required this.serviceName,
     required this.image,
     required this.taxPercentage,
+    required this.technicianActivationCharges,
     required this.certificates,
   });
 
@@ -21,6 +23,7 @@ class ServiceModel {
       serviceName: json['service_name'] ?? '',
       image: json['image'] ?? '',
       taxPercentage: json['tax_percentage'] ?? 0,
+      technicianActivationCharges: json['technician_activation_charges'] ?? 0,
       certificates: (json['certificates'] as List? ?? [])
           .map((e) => CertificateModel.fromJson(e))
           .toList(),
