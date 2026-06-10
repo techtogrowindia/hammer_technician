@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -24,6 +26,43 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Hammer Technician uses the camera to capture photos for job documentation, proof of work, and document scanning.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Hammer Technician accesses your photo library to upload images for job documentation and proof of work.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Hammer Technician requires microphone access for video recording during job documentation.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID is used for secure and quick login to your Hammer Partner account.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Hammer Technician collects location data to track technician attendance, verify live service location, and enable customer service updates even when the app is in the background.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Hammer Technician collects location data even when the app is closed or not in use for technician tracking and assigned service monitoring.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Hammer Technician collects location data to track technician attendance, verify live service location, and enable customer service updates.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneDelegateClassName</key>
+					<string>FlutterSceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -41,17 +80,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Face ID is used for secure and quick login to your Hammer Partner account.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Hammer Technician collects location data to track technician attendance, verify live service location, and enable customer service updates.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Hammer Technician collects location data even when the app is closed or not in use for technician tracking and assigned service monitoring.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Hammer Technician collects location data to track technician attendance, verify live service location, and enable customer service updates even when the app is in the background.</string>
 </dict>
 </plist>

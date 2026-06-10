@@ -14,6 +14,7 @@ import 'package:hammer_app/features/kyc/presentation/screen/kyc_screen.dart';
 import 'package:hammer_app/features/login/presentation/screens/login_screen.dart';
 import 'package:hammer_app/features/logout/exit_dialog.dart';
 import 'package:hammer_app/features/logout/logout_service.dart';
+import 'package:hammer_app/features/logout/delete_account_service.dart';
 import 'package:hammer_app/features/profile/cubit/profile_cubit.dart';
 import 'package:hammer_app/features/profile/cubit/profile_state.dart';
 import 'package:hammer_app/features/profile/data/models/profile_response_model.dart';
@@ -155,7 +156,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
                                     allDone: allDone,
                                   ),
                                   const SizedBox(height: 24),
-                                  _buildLogoutAction(),
+                                  _buildAccountActions(profile),
                                   const SizedBox(height: 40),
                                 ],
                               ),
@@ -662,7 +663,7 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
           );
         }
 
-        final loadedState = state as FetchKeyLoaded;
+        final loadedState = state;
         final isPaid =
             profile.initialDeposit == 'paid' ||
             profile.kycStatus.toLowerCase() == 'verified' ||
@@ -814,34 +815,116 @@ class _KycOnboardingScreenState extends State<KycOnboardingScreen> {
     );
   }
 
-  Widget _buildLogoutAction() {
-    return Center(
-      child: TextButton.icon(
-        onPressed: () async {
-          final shouldExit = await ExitConfirmation.show(
-            context,
-            message: 'Do you want to logout?',
-          );
-          if (shouldExit) {
-            final result = await LogoutService.logout();
-            if (result == "SUCCESS") {
-              Navigator.pushAndRemoveUntil(
+  Widget _buildAccountActions(UserProfile profile) {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFF475569).withOpacity(0.06),
+              foregroundColor: const Color(0xFF475569),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            onPressed: () async {
+              final shouldExit = await ExitConfirmation.show(
                 context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
+                message: 'Do you want to logout?',
               );
-            }
-          }
-        },
-        icon: const Icon(Icons.logout, color: Color(0xFFEF4444), size: 18),
-        label: const Text(
-          "Logout from account",
-          style: TextStyle(
-            color: Color(0xFFEF4444),
-            fontWeight: FontWeight.w600,
+              if (shouldExit) {
+                final result = await LogoutService.logout();
+                if (result == "SUCCESS") {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.logout_rounded, size: 22),
+            label: const Text(
+              "Logout from account",
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                letterSpacing: 0.3,
+              ),
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444).withOpacity(0.08),
+              foregroundColor: const Color(0xFFEF4444),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            onPressed: () async {
+              final shouldDelete = await ExitConfirmation.show(
+                context,
+                title: 'Delete Account?',
+                message:
+                    'This will permanently delete your account and all related data. This action cannot be undone.',
+                confirmText: 'Delete',
+              );
+              if (shouldDelete) {
+                final techId = profile.id;
+                if (techId != null) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) =>
+                        const Center(child: CircularProgressIndicator()),
+                  );
+
+                  final success = await DeleteAccountService.deleteTechnicianAccount(techId);
+
+                  Navigator.pop(context);
+
+                  if (success) {
+                    AppSnackBar.show(context, "Account deleted successfully.");
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  } else {
+                    AppSnackBar.show(
+                      context,
+                      "Failed to delete account. Please try again or contact support.",
+                      isError: true,
+                    );
+                  }
+                } else {
+                  AppSnackBar.show(
+                    context,
+                    "Profile data not found. Please wait until it loads.",
+                    isError: true,
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.delete_forever_rounded, size: 22),
+            label: const Text(
+              "Delete Account",
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

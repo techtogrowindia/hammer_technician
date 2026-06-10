@@ -383,9 +383,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final isFirstPrompt =
         !(await SharedPrefsHelper.isLocationPromptShownOnce());
     if (isFirstPrompt) {
-      final userAllowed = await _showLocationAccessDialog();
+      await _showLocationAccessDialog();
       await SharedPrefsHelper.markLocationPromptShownOnce();
-      if (!userAllowed) return;
     }
 
     final hasPermission = await _ensureLocationPermission();
@@ -405,7 +404,7 @@ class _LoginScreenState extends State<LoginScreen> {
     context.read<LoginCubit>().submit(request);
   }
 
-  Future<bool> _showLocationAccessDialog() async {
+  Future<void> _showLocationAccessDialog() async {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -462,36 +461,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(dialogContext, false),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text("Deny"),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(dialogContext, true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryBlue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text("Allow"),
-                      ),
-                    ),
-                  ],
+                    child: const Text("Continue"),
+                  ),
                 ),
               ],
             ),
@@ -499,7 +482,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       },
     );
-    return result ?? false;
   }
 
   Future<bool> _ensureLocationPermission() async {

@@ -70,5 +70,5 @@ class ApiConstants {
   
   // NOTE: This must match the backend's company_api_bearer_token setting.
   // Configure this in Company -> Settings -> Company API bearer token.
-  static const String companyApiBearerToken = 'YOUR_COMPANY_API_BEARER_TOKEN';
+  static const String companyApiBearerToken = '12345678';
 }
