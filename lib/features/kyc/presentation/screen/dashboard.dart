@@ -18,9 +18,12 @@ import 'package:hammer_app/features/profile/data/models/general_profile_model.da
 import 'package:hammer_app/features/profile/presentation/profile_screen.dart';
 import 'package:hammer_app/features/profile/presentation/general_profile_edit_sheet.dart';
 import 'package:hammer_app/features/service/presenation/service_screen.dart';
+import 'package:hammer_app/features/profile/presentation/referral_screen.dart';
+import 'package:hammer_app/features/profile/data/repositories/duty_repository.dart';
 import 'package:hammer_app/core/utils/shared_prefs_helper.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:hammer_app/core/utils/snackbar_utils.dart';
+import 'package:hammer_app/core/utils/service_locators.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -33,6 +36,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _token;
   bool _biometricEnabled = false;
   final LocalAuthentication _localAuth = LocalAuthentication();
+  bool _dutyOn = false;
+  bool _isDutyLoading = false;
 
   @override
   void initState() {
@@ -52,6 +57,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
     context.read<ProfileCubit>().loadProfile();
     context.read<GeneralProfileCubit>().loadGeneralProfile();
     context.read<DynamicContentCubit>().fetchDynamicContent();
+    _fetchDutyStatus();
+  }
+
+  Future<void> _fetchDutyStatus() async {
+    try {
+      final res = await sl<DutyRepository>().getDutyStatus();
+      if (mounted) {
+        setState(() {
+          _dutyOn = res['duty_on'] == true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Failed to fetch duty status: $e");
+    }
+  }
+
+  Future<void> _toggleDuty(bool newValue) async {
+    setState(() => _isDutyLoading = true);
+    try {
+      final res = await sl<DutyRepository>().updateDutyStatus(newValue);
+      if (mounted) {
+        setState(() {
+          _dutyOn = res['duty_on'] == true;
+          _isDutyLoading = false;
+        });
+        AppSnackBar.show(
+          context,
+          "Duty status updated to ${_dutyOn ? 'ON' : 'OFF'} successfully.",
+          isError: false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isDutyLoading = false;
+        });
+        AppSnackBar.show(
+          context,
+          "Failed to update duty status: ${e.toString().replaceAll('Exception: ', '')}",
+          isError: true,
+        );
+      }
+    }
   }
 
   @override
@@ -155,65 +203,138 @@ class _DashboardScreenState extends State<DashboardScreen> {
           bottomRight: Radius.circular(30),
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          IconButton(
-            onPressed: () => Scaffold.of(context).openDrawer(),
-            icon: Icon(
-              Icons.sort_rounded,
-              color: AppColors.primaryBlue,
-              size: sw * 0.08,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const Spacer(),
-          Text(
-            "HAMMER",
-            style: TextStyle(
-              fontSize: sw * 0.045,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-              color: AppColors.primaryBlue,
-            ),
-          ),
-          const Spacer(),
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfilePage()),
-              );
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.primaryBlue.withOpacity(0.2),
-                  width: 1.5,
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Scaffold.of(context).openDrawer(),
+                icon: Icon(
+                  Icons.sort_rounded,
+                  color: AppColors.primaryBlue,
+                  size: sw * 0.08,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const Spacer(),
+              Text(
+                "HAMMER",
+                style: TextStyle(
+                  fontSize: sw * 0.045,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                  color: AppColors.primaryBlue,
                 ),
               ),
-              child: CircleAvatar(
-                radius: sw * 0.06,
-                backgroundColor: Colors.white,
-                backgroundImage:
-                    (profile?.documentKycUrls?['photo'] != null &&
-                        _token != null)
-                    ? NetworkImage(
-                        profile!.documentKycUrls!['photo']!,
-                        headers: {'Authorization': 'Bearer $_token'},
-                      )
-                    : null,
-                child:
-                    (profile?.documentKycUrls?['photo'] == null ||
-                        _token == null)
-                    ? Icon(
-                        Icons.person_rounded,
-                        size: sw * 0.045,
-                        color: AppColors.primaryBlue,
-                      )
-                    : null,
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.primaryBlue.withOpacity(0.2),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: sw * 0.06,
+                    backgroundColor: Colors.white,
+                    backgroundImage:
+                        (profile?.documentKycUrls?['photo'] != null &&
+                            _token != null)
+                        ? NetworkImage(
+                            profile!.documentKycUrls!['photo']!,
+                            headers: {'Authorization': 'Bearer $_token'},
+                          )
+                        : null,
+                    child:
+                        (profile?.documentKycUrls?['photo'] == null ||
+                            _token == null)
+                        ? Icon(
+                            Icons.person_rounded,
+                            size: sw * 0.045,
+                            color: AppColors.primaryBlue,
+                          )
+                        : null,
+                  ),
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: _dutyOn ? Colors.greenAccent : Colors.white70,
+                        shape: BoxShape.circle,
+                        boxShadow: _dutyOn
+                            ? [
+                                BoxShadow(
+                                  color: Colors.greenAccent.withOpacity(0.5),
+                                  blurRadius: 6,
+                                  spreadRadius: 2,
+                                )
+                              ]
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _dutyOn ? "ON DUTY (ACTIVE)" : "OFF DUTY (INACTIVE)",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                _isDutyLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : SizedBox(
+                        height: 24,
+                        child: Transform.scale(
+                          scale: 0.8,
+                          child: Switch(
+                            value: _dutyOn,
+                            onChanged: _toggleDuty,
+                            activeColor: Colors.greenAccent,
+                            activeTrackColor: Colors.white30,
+                            inactiveThumbColor: Colors.white70,
+                            inactiveTrackColor: Colors.black12,
+                          ),
+                        ),
+                      ),
+              ],
             ),
           ),
         ],
@@ -224,8 +345,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildDynamicNote(double sw) {
     return BlocBuilder<DynamicContentCubit, DynamicContentState>(
       builder: (context, state) {
-        String message =
-            "வரவேற்பதில் பெருமிதம் கொள்கிறோம்! 🎉\n\nநமது ஹேமர் (Hammer) நிறுவனத்துடன் இணைந்துள்ள புதிய சேவை வழங்குநரை ஹேமர் குழுமம் மற்றும் அதன் நிறுவனர்கள் சார்பாக அன்போடு, நெஞ்சார வரவேற்கிறோம்! 🤝\n\nவாடிக்கையாளர்களுக்குத் தரமான, நம்பிக்கையான சேவைகளை \"ஒரே டச்சில்\" (One Tap) கொண்டு சேர்க்கும் நமது லட்சியப் பயணத்தில், உங்கள் பங்களிப்பு மிக முக்கியமானது.\n\nஉங்கள் வளர்ச்சிக்கும், வெற்றிக்கும் ஹேமர் குழுமம் என்றும் உறுதுணையாக இருக்கும்.\n\nஇணைந்து வளர்வோம்... வெற்றியைப் பகிர்வோம்! 🚀";
+        String message = '''
+🎉 வரவேற்பதில் பெருமிதம் கொள்கிறோம்!
+
+நமது ஹேமர் (Hammer) நிறுவனத்துடன் இணைந்துள்ள புதிய சேவை வழங்குநரை, ஹேமர் குழுமம் மற்றும் அதன் நிறுவனர்கள் சார்பாக அன்போடு, நெஞ்சார வரவேற்கிறோம். 🤝
+
+வாடிக்கையாளர்களுக்குத் தரமான, நம்பிக்கையான சேவைகளை "ஒரே டச்சில்" (One Tap) கொண்டு சேர்க்கும் நமது லட்சியப் பயணத்தில், உங்கள் பங்களிப்பு மிகவும் முக்கியமானது.
+
+உங்கள் வளர்ச்சிக்கும், வெற்றிக்கும் ஹேமர் குழுமம் என்றும் உறுதுணையாக இருக்கும்.
+
+🚀 இணைந்து வளர்வோம்...
+🤝 வெற்றியைப் பகிர்வோம்!
+''';
         if (state is DynamicContentLoaded) {
           message = state.model.data?.positiveMessage ?? message;
         }
@@ -287,11 +418,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text(
                           message,
                           style: TextStyle(
-                            fontSize: sw * 0.046,
-                            fontWeight: FontWeight.w800,
+                            fontSize: sw * 0.04,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.primaryBlue,
-                            height: 1.5,
-                            letterSpacing: -0.5,
+                            height: 1.7,
+                            letterSpacing: 0.2,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -395,6 +526,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ServicesPage()),
+            );
+          }),
+          _drawerItem(Icons.group_add_outlined, "Referrals", () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ReferralScreen()),
             );
           }),
           _drawerItem(

@@ -18,7 +18,10 @@ import 'package:hammer_app/features/otp/data/repositories/mobile_otp_repository.
 import 'package:hammer_app/features/otp/data/serivces/mobile_otp_service.dart';
 import 'package:hammer_app/features/profile/cubit/profile_cubit.dart';
 import 'package:hammer_app/features/profile/cubit/general_profile_cubit.dart';
+import 'package:hammer_app/features/profile/cubit/team_member_cubit.dart';
 import 'package:hammer_app/features/profile/data/repositories/profile_repository.dart';
+import 'package:hammer_app/features/profile/data/repositories/referral_repository.dart';
+import 'package:hammer_app/features/profile/data/repositories/duty_repository.dart';
 import 'package:hammer_app/features/profile/data/services/profile_service.dart';
 import 'package:hammer_app/features/register/cubit/register_cubit.dart';
 import 'package:hammer_app/features/otp/cubit/verify_otp_cubit.dart';
@@ -77,6 +80,9 @@ Future<void> init() async {
 
   sl.registerLazySingleton<ProfileRepository>(() => ProfileRepository(sl()));
 
+  sl.registerLazySingleton<ReferralRepository>(() => ReferralRepository());
+  sl.registerLazySingleton<DutyRepository>(() => DutyRepository());
+
   sl.registerLazySingleton<ProfileCubit>(
     () => ProfileCubit(sl<ProfileRepository>()),
   );
@@ -84,6 +90,11 @@ Future<void> init() async {
   // General Profile
   sl.registerFactory<GeneralProfileCubit>(
     () => GeneralProfileCubit(sl<ProfileRepository>()),
+  );
+
+  // Team Member
+  sl.registerFactory<TeamMemberCubit>(
+    () => TeamMemberCubit(sl<ProfileRepository>()),
   );
 
   // Forgot Password

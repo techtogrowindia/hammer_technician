@@ -67,8 +67,14 @@ class ApiConstants {
   static String get createOrder => '$baseUrl/api/payment/razorpay-order-create';
   static String get generalProfile => '$baseUrl/api/technician/general_profile';
   static String get deleteAccount => '$baseUrl/api/general/account';
+  static String get teamMembers => '$baseUrl/api/technician/team_members';
+  static String teamMemberById(dynamic id) => '$baseUrl/api/technician/team_members/$id';
   
   // NOTE: This must match the backend's company_api_bearer_token setting.
   // Configure this in Company -> Settings -> Company API bearer token.
   static const String companyApiBearerToken = '12345678';
+  
+  static String get referral => '$baseUrl/api/technician/referral';
+  static String get referrals => '$baseUrl/api/technician/referrals';
+  static String get duty => '$baseUrl/api/technician/duty';
 }

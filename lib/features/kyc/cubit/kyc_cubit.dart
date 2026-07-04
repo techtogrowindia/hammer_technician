@@ -59,7 +59,7 @@ class KycCubit extends Cubit<KycState> {
 
   /// Save/update selected service categories
   Future<void> saveServiceCategories(
-    List<int> categories, {
+    List<Map<String, dynamic>> categories, {
     bool isUpdate = false,
   }) async {
     emit(KycLoading());

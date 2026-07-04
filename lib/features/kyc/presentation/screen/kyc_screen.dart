@@ -12,7 +12,6 @@ import 'package:hammer_app/core/config/api_constants.dart';
 import 'package:hammer_app/core/utils/service_locators.dart';
 import 'package:hammer_app/core/utils/shared_prefs_helper.dart';
 import 'package:hammer_app/features/kyc/data/models/blood_group_model.dart';
-import 'package:hammer_app/features/kyc/data/models/kyc_service_model.dart';
 import 'package:hammer_app/features/kyc/data/repositories/kyc_repository.dart';
 import 'package:hammer_app/features/service/data/models/subcategory_model.dart';
 import 'package:http/http.dart' as http;
@@ -66,6 +65,7 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
   ServiceCertificateListResponse? serviceCertificateListResponse;
   Map<String, File?> professionalDocFiles = {};
   bool isLoadingCertificateList = false;
+  bool _isCertificateUploading = false;
 
   File? signatureFile;
 
@@ -1232,7 +1232,8 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
             isLoading:
                 state is KycLoading ||
                 state is DocumentUploading ||
-                _isPrefilling,
+                _isPrefilling ||
+                _isCertificateUploading,
             scrollController: scrollController,
           );
         },
@@ -1326,8 +1327,15 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
         return;
       }
 
-      final catIds = selectedCategories.map((c) => c.id).toList();
-      await cubit.saveServiceCategories(catIds);
+      final categoriesPayload = selectedCategories.map((c) {
+        final exp = int.tryParse(c.experienceController.text) ?? 1;
+        return {
+          'category_id': c.id,
+          'id': c.id,
+          'years_of_experience': exp,
+        };
+      }).toList();
+      await cubit.saveServiceCategories(categoriesPayload);
 
       final serviceIds = selectedServices.map((s) => s.serviceId).toList();
       await cubit.saveTechnicianServices(serviceIds);
@@ -1393,6 +1401,7 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
         }
 
         // Upload all certificates that have files — use repo directly
+        setState(() => _isCertificateUploading = true);
         try {
           final repo = context.read<KycCubit>().repository;
           for (final certKey in professionalFilesMap.keys) {
@@ -1423,6 +1432,8 @@ class _KycStepperScreenState extends State<KycStepperScreen> {
           });
         } catch (e) {
           _error("Certificate upload failed: $e");
+        } finally {
+          if (mounted) setState(() => _isCertificateUploading = false);
         }
       } else {
         // No certificates required, just skip

@@ -194,9 +194,9 @@ class KycApiService {
   }
 
   /// POST /api/technician/technician_service_category
-  /// Body: { "technician_service_category": [1, 2] }
+  /// Body: { "technician_service_category": [{"category_id": 1, "years_of_experience": 2}] }
   Future<Map<String, dynamic>> saveServiceCategories(
-    List<int> categories, {
+    List<Map<String, dynamic>> categories, {
     bool isUpdate = false,
   }) async {
     return _request(

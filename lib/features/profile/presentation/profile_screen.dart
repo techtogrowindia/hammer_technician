@@ -13,6 +13,7 @@ import 'package:hammer_app/features/profile/data/models/festival_model.dart';
 import 'package:hammer_app/features/profile/data/models/general_profile_model.dart';
 import 'package:hammer_app/features/profile/data/models/profile_response_model.dart';
 import 'package:hammer_app/features/profile/presentation/general_profile_edit_sheet.dart';
+import 'package:hammer_app/features/profile/presentation/team_members_screen.dart';
 import 'package:hammer_app/core/utils/shared_prefs_helper.dart';
 import 'package:hammer_app/core/utils/snackbar_utils.dart';
 import 'package:hammer_app/features/kyc/presentation/stepper/kyc_data_loader.dart';
@@ -257,6 +258,25 @@ class _ProfilePageState extends State<ProfilePage> {
                             gp?.insuranceDetails?.insuranceProvider != null,
                             isReadOnly: gp?.insuranceDetails?.insuranceProvider != null,
                             statusLabel: "Provided",
+                          ),
+
+                          SizedBox(height: sh * 0.02),
+                          _buildSectionTitle("Team Management"),
+                          _buildDetailedTile(
+                            Icons.group_rounded,
+                            "Team Members (Child IDs)",
+                            "Manage team credentials & child accounts",
+                            () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const TeamMembersScreen(),
+                                ),
+                              );
+                            },
+                            sw,
+                            true,
+                            showEditIcon: true,
                           ),
 
                           SizedBox(height: sh * 0.02),

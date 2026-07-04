@@ -6,6 +6,7 @@ import 'package:hammer_app/core/config/app_config.dart';
 import 'package:hammer_app/core/config/config_loader.dart';
 
 import 'package:hammer_app/core/utils/common/screens/splash_screen.dart';
+import 'package:hammer_app/core/utils/common/widgets/internet_connection_wrapper.dart';
 import 'package:hammer_app/core/utils/service_locators.dart';
 import 'package:hammer_app/features/common/cubit/common_details_cubit.dart';
 import 'package:hammer_app/features/common/cubit/fetch_key_cubit.dart';
@@ -17,6 +18,7 @@ import 'package:hammer_app/features/otp/cubit/mobile_otp_cubit.dart';
 import 'package:hammer_app/features/otp/cubit/verify_otp_cubit.dart';
 import 'package:hammer_app/features/profile/cubit/profile_cubit.dart';
 import 'package:hammer_app/features/profile/cubit/general_profile_cubit.dart';
+import 'package:hammer_app/features/profile/cubit/team_member_cubit.dart';
 import 'package:hammer_app/features/register/cubit/register_cubit.dart';
 import 'package:hammer_app/features/service/cubit/service_cubit.dart';
 import 'package:hammer_app/features/common/cubit/dynamic_content_cubit.dart';
@@ -47,6 +49,7 @@ class MyApp extends StatelessWidget {
         BlocProvider<ServiceCubit>(create: (_) => sl<ServiceCubit>()),
         BlocProvider<ProfileCubit>(create: (_) => sl<ProfileCubit>()),
         BlocProvider<GeneralProfileCubit>(create: (_) => sl<GeneralProfileCubit>()),
+        BlocProvider<TeamMemberCubit>(create: (_) => sl<TeamMemberCubit>()),
         BlocProvider<ForgotPasswordCubit>(
           create: (_) => sl<ForgotPasswordCubit>(),
         ),
@@ -60,6 +63,9 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: AppConfig.instance.appName,
+        builder: (context, child) {
+          return InternetConnectionWrapper(child: child ?? const SizedBox());
+        },
         home: const SplashScreen(),
       ),
     );

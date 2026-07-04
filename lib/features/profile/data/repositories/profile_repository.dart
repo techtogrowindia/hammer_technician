@@ -3,6 +3,7 @@ import 'dart:io';
 import '../models/general_profile_model.dart';
 import '../models/profile_response_model.dart';
 import '../models/festival_model.dart';
+import '../models/team_member_model.dart';
 import '../services/profile_service.dart';
 
 class ProfileRepository {
@@ -27,5 +28,25 @@ class ProfileRepository {
 
   Future<List<Festival>> getFestivals() {
     return service.fetchFestivals();
+  }
+
+  Future<List<TeamMember>> getTeamMembers() {
+    return service.fetchTeamMembers();
+  }
+
+  Future<TeamMember> createTeamMember({
+    required String name,
+    required String mobile,
+    required String aadharNumber,
+  }) {
+    return service.createTeamMember(
+      name: name,
+      mobile: mobile,
+      aadharNumber: aadharNumber,
+    );
+  }
+
+  Future<void> deleteTeamMember(dynamic id) {
+    return service.deleteTeamMember(id);
   }
 }

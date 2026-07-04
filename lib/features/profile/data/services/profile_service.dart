@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:hammer_app/core/config/api_constants.dart';
 import 'package:hammer_app/core/utils/shared_prefs_helper.dart';
 import 'package:http/http.dart' as http;
@@ -8,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../models/profile_response_model.dart';
 import '../models/general_profile_model.dart';
 import '../models/festival_model.dart';
+import '../models/team_member_model.dart';
 
 class ProfileService {
   static const Duration _requestTimeout = Duration(seconds: 20);
@@ -155,6 +155,72 @@ class ProfileService {
       return [];
     } catch (_) {
       return [];
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // TEAM MEMBER METHODS
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Future<List<TeamMember>> fetchTeamMembers() async {
+    final token = await SharedPrefsHelper.getToken();
+    final response = await _getWithRetry(
+      Uri.parse(ApiConstants.teamMembers),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      final dynamic rawData = decoded['data'];
+      List<dynamic> listData = [];
+      if (rawData is List) {
+        listData = rawData;
+      } else if (rawData is Map) {
+        listData = rawData['team_members'] ?? [];
+      }
+      return listData.map((e) => TeamMember.fromJson(e)).toList();
+    }
+    throw Exception('Failed to load team members (${response.statusCode})');
+  }
+
+  Future<TeamMember> createTeamMember({
+    required String name,
+    required String mobile,
+    required String aadharNumber,
+  }) async {
+    final token = await SharedPrefsHelper.getToken();
+    final response = await http.post(
+      Uri.parse(ApiConstants.teamMembers),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({
+        'name': name,
+        'mobile': mobile,
+        'aadhar_number': aadharNumber,
+      }),
+    ).timeout(_requestTimeout);
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      return TeamMember.fromJson(decoded['data'] ?? decoded);
+    }
+    throw Exception(_parseError(response));
+  }
+
+  Future<void> deleteTeamMember(dynamic id) async {
+    final token = await SharedPrefsHelper.getToken();
+    final response = await http.delete(
+      Uri.parse(ApiConstants.teamMemberById(id)),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    ).timeout(_requestTimeout);
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(_parseError(response));
     }
   }
 }

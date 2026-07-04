@@ -49,7 +49,7 @@ class KycRepository {
 
   /// Save/update selected service categories
   Future<Map<String, dynamic>> saveServiceCategories(
-    List<int> categories, {
+    List<Map<String, dynamic>> categories, {
     bool isUpdate = false,
   }) async {
     return api.saveServiceCategories(categories, isUpdate: isUpdate);
