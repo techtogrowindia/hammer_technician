@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hammer_app/core/colors/colors.dart';
+import 'package:hammer_app/core/config/env_url.dart';
 import 'package:hammer_app/core/utils/common/screens/welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -70,7 +71,7 @@ class _SplashScreenState extends State<SplashScreen>
           child: ScaleTransition(
             scale: _scaleAnimation,
             child: Image.network(
-              'https://hammerapp.in/images/otp.gif',
+              '${EnvUrls.liveBaseUrl}/api/general/otp-gif',
               width: MediaQuery.of(context).size.width * 0.8,
               height: MediaQuery.of(context).size.width * 0.8,
               fit: BoxFit.contain,

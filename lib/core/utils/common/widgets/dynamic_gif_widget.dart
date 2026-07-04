@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hammer_app/core/config/env_url.dart';
 
 enum DynamicGifType { splash, otp }
 
@@ -18,8 +19,11 @@ class DynamicGifWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // GIF is uploaded via admin Settings → App GIF Settings.
+    // The endpoint redirects to the stored file so the URL stays stable.
+    final url = '${EnvUrls.liveBaseUrl}/api/general/otp-gif';
     return Image.network(
-      'https://hammerapp.in/images/otp.gif',
+      url,
       width: width,
       height: height,
       fit: fit,
