@@ -21,6 +21,7 @@ class DynamicGifWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     // GIF is uploaded via admin Settings → App GIF Settings.
     // The endpoint redirects to the stored file so the URL stays stable.
+    // If no GIF is configured, the endpoint returns 404 and we show nothing.
     final url = '${EnvUrls.liveBaseUrl}/api/general/otp-gif';
     return Image.network(
       url,
@@ -28,6 +29,11 @@ class DynamicGifWidget extends StatelessWidget {
       height: height,
       fit: fit,
       errorBuilder: (context, error, stackTrace) {
+        // No GIF configured (404) or load failed — hide gracefully instead of showing broken image
+        return SizedBox(width: width, height: height);
+      },
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
         return SizedBox(
           width: width,
           height: height,

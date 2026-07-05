@@ -96,13 +96,13 @@ class _SplashScreenState extends State<SplashScreen>
               },
 
               errorBuilder: (context, error, stackTrace) {
-                debugPrint('GIF Error: $error');
-
-                return const Icon(
-                  Icons.broken_image,
-                  color: Colors.white,
-                  size: 80,
-                );
+                debugPrint('GIF Error (will navigate): $error');
+                // GIF not configured or failed to load — navigate after brief delay
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  Future.delayed(const Duration(milliseconds: 500), _navigateToWelcome);
+                });
+                // Show blank space while navigating
+                return const SizedBox.shrink();
               },
             ),
           ),
